@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <title>Welcome to {{companyName}}</title>
+</head>
+<body style="margin:0;padding:0;background:#eef4f8;font-family:Arial,Helvetica,sans-serif;color:#243247;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+    Welcome to {{companyName}}. Your employee account is ready.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef4f8;padding:28px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;">
+          
+          <tr>
+            <td style="background:#087f8c;padding:34px 28px;text-align:center;color:#ffffff;">
+              <div style="font-size:26px;font-weight:bold;">Welcome to {{companyName}}</div>
+              <p style="font-size:14px;line-height:1.7;color:#e0fbff;margin:12px 0 0;">
+                We're happy to have you on our team.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:30px;">
+              <h1 style="font-size:22px;color:#17324d;margin:0 0 16px;">Hello, {{employeeName}}!</h1>
+              <p style="font-size:14px;line-height:1.9;color:#536477;margin:0 0 14px;">
+                Your employee account has been created successfully. Welcome aboard!
+                We look forward to working with you.
+              </p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1fbfc;border:1px solid #d2eff1;border-radius:10px;margin:22px 0;">
+                <tr>
+                  <td style="padding:18px 20px;">
+                    <div style="font-size:12px;color:#536477;">Employee Name</div>
+                    <div style="font-size:15px;font-weight:bold;color:#17324d;margin-top:6px;">{{employeeName}}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 20px 18px;">
+                    <div style="font-size:12px;color:#536477;">Employee ID</div>
+                    <div style="font-size:15px;font-weight:bold;color:#17324d;margin-top:6px;">{{employeeId}}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 20px 18px;">
+                    <div style="font-size:12px;color:#536477;">Registered Email</div>
+                    <div style="font-size:15px;font-weight:bold;color:#17324d;margin-top:6px;">{{employeeEmail}}</div>
+                  </td>
+                </tr>
+              </table>
+
+              <h2 style="font-size:16px;color:#17324d;margin:24px 0 10px;">Getting started</h2>
+              <ul style="font-size:14px;line-height:1.9;color:#536477;padding-left:20px;margin:0;">
+                <li>Keep your employee details up to date.</li>
+                <li>Review your attendance and leave records regularly.</li>
+                <li>Check your salary slips when they are issued.</li>
+                <li>Contact HR if you need help with your account.</li>
+              </ul>
+
+              <p style="font-size:14px;line-height:1.8;color:#536477;margin:24px 0 0;">
+                For security, never share your password or verification codes with anyone.
+                If login access is required, use the official company portal.
+              </p>
+
+              <p style="font-size:14px;line-height:1.8;color:#243247;margin:22px 0 0;">
+                Best regards,<br />
+                <strong>{{companyName}} HR Team</strong>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#f7fafc;padding:18px 28px;text-align:center;border-top:1px solid #e6edf2;">
+              <p style="font-size:11px;line-height:1.7;color:#78889a;margin:0;">
+                This is an automated message from {{companyName}}.<br />
+                &copy; {{currentYear}} {{companyName}}. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

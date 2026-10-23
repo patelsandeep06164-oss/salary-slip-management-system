@@ -1,0 +1,1356 @@
+
+/* =====================================================
+   SALARY SLIP LIST - TECHIT PAYROLL
+   Aqua Blue Professional Responsive Design
+   Matches SalarySlipList.jsx class names
+===================================================== */
+
+.salary-slip-list-page,
+.salary-slip-list-page * {
+  box-sizing: border-box;
+}
+
+.salary-slip-list-page {
+  --ssl-primary: #087fba;
+  --ssl-aqua: #08b8c5;
+  --ssl-dark: #15394f;
+  --ssl-muted: #718895;
+  --ssl-border: #dce9f0;
+  --ssl-surface: #ffffff;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  padding: 26px;
+  color: var(--ssl-dark);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  background: linear-gradient(
+    135deg,
+    #eefaff 0%,
+    #f4f8ff 55%,
+    #e8fbf8 100%
+  );
+}
+
+.salary-slip-list-page button,
+.salary-slip-list-page input,
+.salary-slip-list-page select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.salary-slip-list-page button {
+  cursor: pointer;
+}
+
+.salary-slip-list-page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.salary-slip-list-page a {
+  text-decoration: none;
+}
+
+.salary-slip-list-page svg {
+  flex-shrink: 0;
+}
+
+/* =====================================================
+   PAGE HEADING
+===================================================== */
+
+.ssl-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.ssl-heading > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.ssl-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #078da9;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+}
+
+.ssl-eyebrow svg {
+  font-size: 15px;
+}
+
+.ssl-heading h1 {
+  margin: 9px 0;
+  color: #153a52;
+  font-size: clamp(27px, 3vw, 36px);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.7px;
+}
+
+.ssl-heading p {
+  margin: 0;
+  color: var(--ssl-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.ssl-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* =====================================================
+   BUTTONS
+===================================================== */
+
+.ssl-btn {
+  min-height: 42px;
+  padding: 10px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 12px !important;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.ssl-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.ssl-btn-light {
+  color: #087ba8;
+  border-color: #d7eaf2;
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(24, 89, 117, 0.04);
+}
+
+.ssl-btn-light:hover:not(:disabled) {
+  background: #e8f8ff;
+  border-color: #a8dce9;
+}
+
+.ssl-btn-primary {
+  color: #ffffff;
+  background: linear-gradient(110deg, #087fba, #08b8c5);
+  box-shadow: 0 5px 14px rgba(8, 127, 186, 0.17);
+}
+
+.ssl-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(110deg, #066b9c, #079ca9);
+  box-shadow: 0 7px 18px rgba(8, 127, 186, 0.23);
+}
+
+/* =====================================================
+   SALARY SLIP RECORDS BANNER
+===================================================== */
+
+.ssl-banner {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+  margin-bottom: 22px;
+  padding: 19px 21px;
+  border: 1px solid #d4eaf2;
+  border-radius: 14px;
+  background: linear-gradient(
+    110deg,
+    #ffffff 0%,
+    #f0fcff 65%,
+    #edfffb 100%
+  );
+  box-shadow: 0 5px 18px rgba(24, 89, 117, 0.045);
+}
+
+.ssl-banner-icon {
+  width: 49px;
+  height: 49px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: linear-gradient(135deg, #087fba, #08c0c6);
+  border-radius: 13px;
+  font-size: 23px;
+  box-shadow: 0 5px 12px rgba(8, 127, 186, 0.15);
+}
+
+.ssl-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ssl-banner-text h2 {
+  margin: 0 0 5px;
+  color: #153b53;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.ssl-banner-text p {
+  margin: 0;
+  color: #718895;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.ssl-banner-count {
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  padding-left: 18px;
+  border-left: 1px solid #dcebf1;
+}
+
+.ssl-banner-count span {
+  color: #6d8492;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.ssl-banner-count strong {
+  color: #087fae;
+  font-size: 27px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+/* =====================================================
+   STATISTIC CARDS
+===================================================== */
+
+.ssl-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 25px;
+}
+
+.ssl-stat-card {
+  min-width: 0;
+  min-height: 142px;
+  padding: 19px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid #dfebf1;
+  border-radius: 13px;
+  background: #ffffff;
+  box-shadow: 0 5px 18px rgba(24, 89, 117, 0.035);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.ssl-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 9px 22px rgba(24, 89, 117, 0.09);
+}
+
+.ssl-stat-icon {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 17px;
+}
+
+.ssl-icon-blue {
+  color: #087fba;
+  background: #e5f6fd;
+}
+
+.ssl-icon-green {
+  color: #07875e;
+  background: #e2fbef;
+}
+
+.ssl-icon-teal {
+  color: #079da6;
+  background: #e2faf9;
+}
+
+.ssl-icon-orange {
+  color: #c77b17;
+  background: #fff3df;
+}
+
+.ssl-stat-card > span {
+  color: #6c8290;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.ssl-stat-card > strong {
+  max-width: 100%;
+  color: #173c53;
+  font-size: clamp(21px, 2vw, 28px);
+  font-weight: 800;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.ssl-stat-card > small {
+  color: #8a9ca7;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* =====================================================
+   TABLE CARD
+===================================================== */
+
+.ssl-table-card {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #dce8ef;
+  border-radius: 15px;
+  background: #ffffff;
+  box-shadow: 0 7px 25px rgba(24, 89, 117, 0.055);
+}
+
+.ssl-table-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 22px 18px;
+}
+
+.ssl-table-heading > div {
+  min-width: 0;
+}
+
+.ssl-table-heading h2 {
+  margin: 0 0 6px;
+  color: #163b53;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.ssl-table-heading p {
+  margin: 0;
+  color: #748995;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ssl-record-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: 1px solid #d9edf4;
+  border-radius: 9px;
+  color: #087da8;
+  background: #effaff;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* =====================================================
+   SEARCH AND FILTERS
+===================================================== */
+
+.ssl-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(120px, 150px) minmax(130px, 155px) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 0 22px 19px;
+}
+
+.ssl-search {
+  min-width: 0;
+  min-height: 43px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #dce8ef;
+  border-radius: 9px;
+  color: #7b929f;
+  background: #fbfdff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ssl-search:focus-within {
+  border-color: #46b9d3;
+  box-shadow: 0 0 0 3px rgba(8, 166, 195, 0.09);
+}
+
+.ssl-search svg {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.ssl-search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 0;
+  outline: none;
+  border: 0;
+  color: #24485e;
+  background: transparent;
+  font-size: 12px !important;
+}
+
+.ssl-search input::placeholder {
+  color: #98aab5;
+  opacity: 1;
+}
+
+.ssl-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.ssl-filters select {
+  width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  padding: 0 10px;
+  outline: none;
+  border: 1px solid #dce8ef;
+  border-radius: 9px;
+  color: #426073;
+  background: #fbfdff;
+  font-size: 11px !important;
+  cursor: pointer;
+}
+
+.ssl-filters select:focus {
+  border-color: #46b9d3;
+  box-shadow: 0 0 0 3px rgba(8, 166, 195, 0.08);
+}
+
+.ssl-reset-btn {
+  min-height: 43px;
+  padding: 10px 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cce7f1;
+  border-radius: 9px;
+  color: #087eaa;
+  background: #f0fbff;
+  font-size: 11px !important;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.ssl-reset-btn:hover {
+  background: #dcf5ff;
+}
+
+/* =====================================================
+   ALERTS
+===================================================== */
+
+.ssl-alert {
+  margin: 0 22px 18px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #9b302b;
+  background: #fff0ed;
+  border: 1px solid #f0c6c1;
+  border-left: 4px solid #d45248;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ssl-alert svg {
+  margin-top: 2px;
+}
+
+/* =====================================================
+   LOADING / EMPTY STATE
+===================================================== */
+
+.ssl-state {
+  min-height: 210px;
+  padding: 35px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  border-top: 1px solid #e4edf2;
+  background: #fbfdff;
+}
+
+.ssl-state > strong {
+  color: #24465c;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ssl-state > span {
+  max-width: 420px;
+  color: #7b909c;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.ssl-loading-icon {
+  color: #079fb8;
+  font-size: 27px;
+  animation: ssl-spin 1s linear infinite;
+}
+
+@keyframes ssl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ssl-empty-icon {
+  width: 54px;
+  height: 54px;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #09a4b5;
+  background: #e7faff;
+  border-radius: 16px;
+  font-size: 25px;
+}
+
+/* =====================================================
+   TABLE
+===================================================== */
+
+.ssl-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border-top: 1px solid #e4edf2;
+  scrollbar-width: thin;
+  scrollbar-color: #b5d7e4 #f2f8fb;
+}
+
+.ssl-table {
+  width: 100%;
+  min-width: 1000px;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  background: #ffffff;
+}
+
+.ssl-table thead th {
+  padding: 15px 14px;
+  color: #66808f;
+  background: #f0f8fc;
+  border-bottom: 1px solid #dce8ef;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.45px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.ssl-table tbody td {
+  padding: 15px 14px;
+  color: #355266;
+  border-bottom: 1px solid #edf2f5;
+  font-size: 12px;
+  line-height: 1.5;
+  vertical-align: middle;
+}
+
+.ssl-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.ssl-table tbody tr:hover {
+  background: #f5fbff;
+}
+
+.ssl-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Salary slip cell */
+
+.ssl-slip-cell {
+  min-width: 135px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ssl-slip-cell > div:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ssl-slip-cell strong {
+  color: #087eac;
+  font-size: 11px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.ssl-slip-cell small {
+  color: #8195a1;
+  font-size: 10px;
+}
+
+.ssl-slip-icon {
+  width: 37px;
+  height: 37px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #087eac;
+  background: #e5f7fd;
+  border: 1px solid #d3edf5;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+/* Employee cell */
+
+.ssl-employee-cell {
+  min-width: 170px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ssl-employee-cell > div:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ssl-avatar {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #087eaa;
+  background: linear-gradient(135deg, #e5faff, #e9f7ff);
+  border: 1px solid #ccebf3;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ssl-employee-cell strong {
+  color: #24465c;
+  font-size: 11px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.ssl-employee-cell small {
+  color: #8195a1;
+  font-size: 10px;
+}
+
+/* Pay period */
+
+.ssl-period-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ssl-period-cell strong {
+  color: #24465c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ssl-period-cell small {
+  color: #8195a1;
+  font-size: 10px;
+}
+
+/* Net salary */
+
+.ssl-salary {
+  color: #07825d !important;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================
+   STATUS BADGES
+===================================================== */
+
+.ssl-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 30px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.ssl-status i {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  display: inline-block;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ssl-status-paid {
+  color: #087c57;
+  border-color: #c7eedc;
+  background: #eafbf2;
+}
+
+.ssl-status-emailed {
+  color: #078568;
+  border-color: #c3ebdc;
+  background: #e8faf3;
+}
+
+.ssl-status-pending {
+  color: #a76b0b;
+  border-color: #f5dfb5;
+  background: #fff7e7;
+}
+
+.ssl-status-generated {
+  color: #176ca8;
+  border-color: #c9e7fa;
+  background: #edf8ff;
+}
+
+.ssl-status-failed,
+.ssl-status-cancelled {
+  color: #bd3e4a;
+  border-color: #f4d0d3;
+  background: #fff0f1;
+}
+
+/* =====================================================
+   VIEW BUTTON
+===================================================== */
+
+.ssl-view-btn {
+  min-height: 35px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #087ca8;
+  background: #effaff;
+  border: 1px solid #cdeaf3;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.ssl-view-btn:hover {
+  color: #ffffff;
+  border-color: #0788b8;
+  background: linear-gradient(110deg, #087fba, #08b8c5);
+}
+
+/* =====================================================
+   TABLE FOOTER
+===================================================== */
+
+.ssl-footer {
+  min-height: 49px;
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #7b909d;
+  background: #fbfdff;
+  border-top: 1px solid #e6eef3;
+  font-size: 11px;
+}
+
+.ssl-footer strong {
+  color: #24465c;
+  font-weight: 800;
+}
+
+.ssl-confidential {
+  margin: 20px 0 0;
+  color: #8a9da8;
+  font-size: 10px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* =====================================================
+   TABLET
+===================================================== */
+
+@media (max-width: 1100px) {
+  .salary-slip-list-page {
+    padding: 20px;
+  }
+
+  .ssl-heading {
+    align-items: flex-start;
+  }
+
+  .ssl-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ssl-filters {
+    grid-template-columns: minmax(180px, 1fr) minmax(110px, 140px) minmax(120px, 150px) auto;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .ssl-table-heading {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+}
+
+/* =====================================================
+   MOBILE / SMALL TABLET
+===================================================== */
+
+@media (max-width: 760px) {
+  .salary-slip-list-page {
+    padding: 16px;
+  }
+
+  .ssl-heading {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ssl-heading-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ssl-banner {
+    padding: 15px;
+  }
+
+  .ssl-banner-count {
+    min-width: 88px;
+    padding-left: 12px;
+  }
+
+  .ssl-banner-count strong {
+    font-size: 23px;
+  }
+
+  .ssl-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 16px 16px;
+  }
+
+  .ssl-search {
+    grid-column: 1 / -1;
+  }
+
+  .ssl-reset-btn {
+    width: 100%;
+  }
+
+  .ssl-table-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 16px;
+  }
+
+  .ssl-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+    padding: 13px 16px;
+  }
+}
+
+/* =====================================================
+   MOBILE
+===================================================== */
+
+@media (max-width: 520px) {
+  .salary-slip-list-page {
+    padding: 12px;
+  }
+
+  .ssl-heading h1 {
+    font-size: 27px;
+  }
+
+  .ssl-heading p {
+    font-size: 12px;
+  }
+
+  .ssl-heading-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ssl-btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 9px 7px;
+    gap: 6px;
+    font-size: 11px !important;
+  }
+
+  .ssl-banner {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .ssl-banner-icon {
+    width: 39px;
+    height: 39px;
+    border-radius: 10px;
+    font-size: 18px;
+  }
+
+  .ssl-banner-text h2 {
+    font-size: 15px;
+  }
+
+  .ssl-banner-text p {
+    font-size: 10px;
+  }
+
+  .ssl-banner-count {
+    min-width: auto;
+    gap: 4px;
+    padding-left: 9px;
+  }
+
+  .ssl-banner-count span {
+    font-size: 7px;
+    letter-spacing: 0.5px;
+  }
+
+  .ssl-banner-count strong {
+    font-size: 20px;
+  }
+
+  .ssl-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .ssl-stat-card {
+    min-height: 130px;
+    padding: 13px 10px;
+    gap: 7px;
+  }
+
+  .ssl-stat-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    font-size: 14px;
+  }
+
+  .ssl-stat-card > span {
+    font-size: 10px;
+  }
+
+  .ssl-stat-card > strong {
+    font-size: 21px;
+  }
+
+  .ssl-stat-card > small {
+    font-size: 9px;
+  }
+
+  .ssl-table-heading {
+    padding: 16px 13px;
+  }
+
+  .ssl-table-heading h2 {
+    font-size: 17px;
+  }
+
+  .ssl-table-heading p {
+    font-size: 11px;
+  }
+
+  .ssl-record-count {
+    padding: 7px 10px;
+    font-size: 10px;
+  }
+
+  .ssl-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 12px 15px;
+  }
+
+  .ssl-search {
+    min-height: 40px;
+    padding: 0 10px;
+  }
+
+  .ssl-search input {
+    font-size: 11px !important;
+  }
+
+  .ssl-filters select,
+  .ssl-reset-btn {
+    min-height: 39px;
+    padding: 8px;
+    font-size: 10px !important;
+  }
+
+  .ssl-table {
+    min-width: 960px;
+  }
+
+  .ssl-table thead th {
+    padding: 12px 10px;
+    font-size: 9px;
+  }
+
+  .ssl-table tbody td {
+    padding: 12px 10px;
+    font-size: 10px;
+  }
+
+  .ssl-slip-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .ssl-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 10px;
+  }
+
+  .ssl-view-btn {
+    min-height: 32px;
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+
+  .ssl-alert {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+
+  .ssl-confidential {
+    margin-top: 15px;
+    font-size: 9px;
+  }
+}
+
+/* =====================================================
+   VERY SMALL MOBILE
+===================================================== */
+
+@media (max-width: 350px) {
+  .salary-slip-list-page {
+    padding: 8px;
+  }
+
+  .ssl-banner {
+    flex-wrap: wrap;
+  }
+
+  .ssl-banner-count {
+    width: 100%;
+    align-items: flex-start;
+    padding: 9px 0 0;
+    border-top: 1px solid #dcebf1;
+    border-left: 0;
+  }
+
+  .ssl-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ssl-stat-card {
+    min-height: auto;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 10px;
+  }
+
+  .ssl-stat-icon {
+    grid-row: span 3;
+    margin: 0;
+  }
+
+  .ssl-stat-card > span,
+  .ssl-stat-card > strong,
+  .ssl-stat-card > small {
+    grid-column: 2;
+  }
+
+  .ssl-stat-card > strong {
+    font-size: 20px;
+  }
+}
+
+/* =====================================================
+   PRINT
+===================================================== */
+
+@page {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  .salary-slip-list-page {
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #15394f !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .ssl-heading-actions,
+  .ssl-filters,
+  .ssl-confidential {
+    display: none !important;
+  }
+
+  .ssl-heading {
+    margin-bottom: 12px;
+  }
+
+  .ssl-heading h1 {
+    font-size: 22px;
+  }
+
+  .ssl-heading p {
+    font-size: 10px;
+  }
+
+  .ssl-banner {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  .ssl-banner-icon {
+    width: 35px;
+    height: 35px;
+    font-size: 17px;
+  }
+
+  .ssl-stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 13px;
+  }
+
+  .ssl-stat-card {
+    min-height: 0;
+    padding: 10px;
+    gap: 6px;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  .ssl-stat-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+
+  .ssl-stat-card > span {
+    font-size: 9px;
+  }
+
+  .ssl-stat-card > strong {
+    font-size: 17px;
+  }
+
+  .ssl-stat-card > small {
+    font-size: 8px;
+  }
+
+  .ssl-table-card {
+    overflow: visible !important;
+    border-radius: 0;
+    box-shadow: none !important;
+  }
+
+  .ssl-table-heading {
+    padding: 12px;
+  }
+
+  .ssl-table-heading h2 {
+    font-size: 14px;
+  }
+
+  .ssl-table-heading p {
+    font-size: 9px;
+  }
+
+  .ssl-table-wrap {
+    overflow: visible !important;
+  }
+
+  .ssl-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto;
+  }
+
+  .ssl-table thead th {
+    padding: 8px 6px;
+    font-size: 8px;
+  }
+
+  .ssl-table tbody td {
+    padding: 9px 6px;
+    font-size: 8px;
+  }
+
+  .ssl-slip-icon,
+  .ssl-avatar {
+    width: 27px;
+    height: 27px;
+    font-size: 8px;
+  }
+
+  .ssl-slip-cell strong,
+  .ssl-employee-cell strong {
+    font-size: 9px;
+  }
+
+  .ssl-slip-cell small,
+  .ssl-employee-cell small,
+  .ssl-period-cell small {
+    font-size: 8px;
+  }
+
+  .ssl-employee-cell {
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .ssl-status {
+    padding: 5px 7px;
+    font-size: 8px;
+  }
+
+  .ssl-status i {
+    width: 5px;
+    height: 5px;
+  }
+
+  .ssl-view-btn {
+    display: none !important;
+  }
+
+  .ssl-footer {
+    padding: 10px 12px;
+    font-size: 8px;
+  }
+
+  .ssl-stat-card,
+  .ssl-table-card,
+  .ssl-banner {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

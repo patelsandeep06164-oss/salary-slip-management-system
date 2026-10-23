@@ -1,0 +1,5 @@
+uploads/employee-documents/*
+!uploads/employee-documents/.gitkeep
+
+uploads/salary-slips/*
+!uploads/salary-slips/.gitkeep

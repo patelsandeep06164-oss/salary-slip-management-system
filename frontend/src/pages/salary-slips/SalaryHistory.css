@@ -1,0 +1,1265 @@
+
+/* ======================================
+   SALARY HISTORY - MAIN LAYOUT
+====================================== */
+
+.salary-history-page,
+.salary-history-page * {
+  box-sizing: border-box;
+}
+
+.salary-history-page {
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  padding: 28px;
+  color: #19364e;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  background: linear-gradient(
+    135deg,
+    #effcff 0%,
+    #f5f9ff 52%,
+    #f5f7ff 100%
+  );
+  overflow-x: hidden;
+}
+
+/* ======================================
+   HEADER
+====================================== */
+
+.sh-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-bottom: 25px;
+}
+
+.sh-heading-copy {
+  min-width: 0;
+}
+
+.sh-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #0799b2;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+}
+
+.sh-heading h1 {
+  margin: 0;
+  color: #17364e;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+
+.sh-heading p {
+  margin: 9px 0 0;
+  color: #7b8fa2;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.sh-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.sh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 43px;
+  padding: 11px 16px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.sh-btn:hover {
+  transform: translateY(-2px);
+}
+
+.sh-btn-light {
+  color: #38556c;
+  background: #ffffff;
+  border-color: #dce9f1;
+}
+
+.sh-btn-light:hover {
+  background: #eafbff;
+  border-color: #a5e1ed;
+}
+
+.sh-btn-primary {
+  color: #ffffff;
+  background: linear-gradient(135deg, #0bbdca, #2676e9);
+  box-shadow: 0 6px 16px rgba(26, 137, 205, 0.2);
+}
+
+.sh-btn-primary:hover {
+  box-shadow: 0 9px 22px rgba(26, 137, 205, 0.3);
+}
+
+/* ======================================
+   REPORT BANNER
+====================================== */
+
+.sh-company-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  margin-bottom: 23px;
+  padding: 22px 25px;
+  overflow: hidden;
+  color: #ffffff;
+  background: linear-gradient(115deg, #087f9d 0%, #08b8c7 48%, #397be7 100%);
+  border-radius: 17px;
+  box-shadow: 0 9px 24px rgba(15, 139, 188, 0.17);
+}
+
+.sh-company-banner::after {
+  position: absolute;
+  top: -70px;
+  right: 180px;
+  width: 190px;
+  height: 190px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.sh-company-logo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 51px;
+  height: 51px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.17);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 15px;
+  font-size: 23px;
+}
+
+.sh-company-info {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sh-company-info strong {
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.sh-company-info span {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.sh-banner-period {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 7px;
+  padding-left: 24px;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.sh-banner-period span {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.sh-banner-period strong {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* ======================================
+   SUMMARY CARDS
+====================================== */
+
+.sh-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 17px;
+  margin-bottom: 22px;
+}
+
+.sh-summary-card {
+  position: relative;
+  min-width: 0;
+  padding: 21px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e0edf4;
+  border-radius: 17px;
+  box-shadow: 0 7px 22px rgba(30, 79, 108, 0.05);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.sh-summary-card::after {
+  position: absolute;
+  right: -36px;
+  bottom: -43px;
+  width: 115px;
+  height: 115px;
+  background: linear-gradient(
+    135deg,
+    rgba(20, 189, 210, 0.07),
+    rgba(51, 114, 231, 0.025)
+  );
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.sh-summary-card:hover {
+  transform: translateY(-4px);
+  border-color: #b6e7f0;
+  box-shadow: 0 12px 27px rgba(30, 79, 108, 0.09);
+}
+
+.sh-card-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 21px;
+}
+
+.sh-summary-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  font-size: 19px;
+}
+
+.sh-blue {
+  color: #227de0;
+  background: linear-gradient(135deg, #e2f3ff, #edf5ff);
+}
+
+.sh-green {
+  color: #0ba77a;
+  background: linear-gradient(135deg, #ddfff1, #eafff6);
+}
+
+.sh-red {
+  color: #e25b70;
+  background: linear-gradient(135deg, #fff0f2, #ffe8ec);
+}
+
+.sh-teal {
+  color: #089eb0;
+  background: linear-gradient(135deg, #ddfbff, #e6f7ff);
+}
+
+.sh-card-label {
+  color: #8799aa;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-align: right;
+}
+
+.sh-card-value {
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: #1a3a52;
+  font-size: clamp(18px, 1.7vw, 25px);
+  font-weight: 800;
+  letter-spacing: -0.7px;
+  overflow-wrap: anywhere;
+}
+
+.sh-card-description {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin-top: 10px;
+  color: #8495a5;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* ======================================
+   PAID AMOUNT SUMMARY
+====================================== */
+
+.sh-paid-summary {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 23px;
+  padding: 18px 22px;
+  background: linear-gradient(115deg, #ffffff, #f0fffa);
+  border: 1px solid #d8f1e8;
+  border-radius: 15px;
+  box-shadow: 0 5px 18px rgba(20, 113, 95, 0.04);
+}
+
+.sh-paid-summary-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: #079b76;
+  background: #dcfff1;
+  border-radius: 13px;
+  font-size: 19px;
+}
+
+.sh-paid-summary-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sh-paid-summary-content > span {
+  color: #758e89;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sh-paid-summary-content strong {
+  color: #087c60;
+  font-size: 22px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.sh-paid-summary-count {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-left: 23px;
+  border-left: 1px solid #dcefe8;
+}
+
+.sh-paid-summary-count span {
+  color: #81948e;
+  font-size: 10px;
+}
+
+.sh-paid-summary-count strong {
+  color: #16876a;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+/* ======================================
+   HISTORY PANEL
+====================================== */
+
+.sh-history-card {
+  min-width: 0;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e0eaf2;
+  border-radius: 18px;
+  box-shadow: 0 8px 27px rgba(25, 76, 107, 0.055);
+}
+
+.sh-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 25px;
+  border-bottom: 1px solid #edf3f7;
+}
+
+.sh-section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+  color: #1098b5;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+}
+
+.sh-history-header h2 {
+  margin: 0;
+  color: #193951;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.sh-history-header p {
+  margin: 8px 0 0;
+  color: #8495a5;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.sh-history-count {
+  flex-shrink: 0;
+  padding: 9px 13px;
+  color: #087e9d;
+  background: #e8faff;
+  border: 1px solid #d4f2f8;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* ======================================
+   SEARCH AND FILTERS
+====================================== */
+
+.sh-filter-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) repeat(3, minmax(115px, 150px)) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 24px;
+  background: #fbfdff;
+  border-bottom: 1px solid #edf3f7;
+}
+
+.sh-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  background: #ffffff;
+  border: 1px solid #dfe9f1;
+  border-radius: 10px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.sh-search-box:focus-within {
+  border-color: #36bdd4;
+  box-shadow: 0 0 0 3px rgba(37, 184, 210, 0.1);
+}
+
+.sh-search-box > svg {
+  flex-shrink: 0;
+  color: #8ba2b3;
+  font-size: 13px;
+}
+
+.sh-search-box input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  color: #29475e;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.sh-search-box input::placeholder {
+  color: #9aaab8;
+}
+
+.sh-filter-row select {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 26px 0 10px;
+  color: #536d82;
+  background: #ffffff;
+  border: 1px solid #dfe9f1;
+  border-radius: 10px;
+  outline: none;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sh-filter-row select:focus {
+  border-color: #36bdd4;
+}
+
+.sh-reset-btn {
+  min-height: 42px;
+  padding: 0 13px;
+  color: #1488a6;
+  background: #eafaff;
+  border: 1px solid #d2f1f8;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.sh-reset-btn:hover {
+  background: #d7f5fc;
+}
+
+/* ======================================
+   MESSAGE
+====================================== */
+
+.sh-message {
+  margin: 14px 24px 0;
+  padding: 11px 14px;
+  color: #087c68;
+  background: #e9fff6;
+  border: 1px solid #c6f4e3;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+/* ======================================
+   STATUS OVERVIEW
+====================================== */
+
+.sh-status-overview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 15px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #edf3f7;
+}
+
+.sh-status-overview > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #73889b;
+  font-size: 11px;
+}
+
+.sh-status-overview strong {
+  color: #29475d;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sh-status-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.paid-dot {
+  background: #10b981;
+}
+
+.generated-dot {
+  background: #4385ef;
+}
+
+.pending-dot {
+  background: #f5a623;
+}
+
+.processing-dot {
+  background: #a17bea;
+}
+
+/* ======================================
+   TABLE
+====================================== */
+
+.sh-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.sh-table {
+  width: 100%;
+  min-width: 1050px;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+.sh-table thead {
+  background: #f4f9fc;
+}
+
+.sh-table th {
+  padding: 15px 14px;
+  color: #758a9d;
+  border-bottom: 1px solid #e8f0f5;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+
+.sh-table td {
+  padding: 15px 14px;
+  color: #526b7f;
+  border-bottom: 1px solid #eef3f7;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.sh-table tbody tr {
+  transition: background 0.18s ease;
+}
+
+.sh-table tbody tr:hover {
+  background: #f7fcff;
+}
+
+.sh-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.sh-period {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 105px;
+}
+
+.sh-period strong {
+  color: #2a485f;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.sh-period small {
+  color: #8c9dad;
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.sh-employee {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+}
+
+.sh-avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 37px;
+  height: 37px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0fc7ca, #2879e8);
+  border-radius: 11px;
+  box-shadow: 0 4px 10px rgba(24, 155, 198, 0.14);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sh-employee-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.sh-employee-info strong {
+  overflow: hidden;
+  max-width: 190px;
+  color: #26445b;
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sh-employee-info small {
+  max-width: 210px;
+  overflow: hidden;
+  color: #899aaa;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sh-money {
+  color: #2d4b62 !important;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sh-red-text {
+  color: #df596f !important;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sh-green-text {
+  color: #079a75 !important;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.sh-date {
+  color: #60798c !important;
+  white-space: nowrap;
+}
+
+/* ======================================
+   STATUS BADGES
+====================================== */
+
+.sh-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 88px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.sh-status > i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+.sh-status-paid {
+  color: #07845e;
+  background: #e6fff5;
+  border-color: #c8f6e4;
+}
+
+.sh-status-generated {
+  color: #2168c4;
+  background: #eaf3ff;
+  border-color: #d3e5ff;
+}
+
+.sh-status-pending {
+  color: #a86a06;
+  background: #fff7e5;
+  border-color: #ffebbd;
+}
+
+.sh-status-processing {
+  color: #7853be;
+  background: #f2edff;
+  border-color: #e3d9ff;
+}
+
+/* ======================================
+   VIEW LINK
+====================================== */
+
+.sh-view-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 11px;
+  color: #087fa2;
+  background: #eafaff;
+  border: 1px solid #d1f1f8;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.sh-view-link:hover {
+  color: #ffffff;
+  background: linear-gradient(135deg, #09b8c8, #2676e9);
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+
+/* ======================================
+   EMPTY STATE
+====================================== */
+
+.sh-empty {
+  padding: 50px 20px !important;
+  text-align: center;
+}
+
+.sh-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 15px;
+  color: #1499b7;
+  background: #e8faff;
+  border-radius: 17px;
+  font-size: 23px;
+}
+
+.sh-empty strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #29475d;
+  font-size: 14px;
+}
+
+.sh-empty span {
+  display: block;
+  max-width: 380px;
+  margin: 0 auto 16px;
+  color: #8999a9;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.sh-empty button {
+  padding: 9px 15px;
+  color: #087f9d;
+  background: #e8faff;
+  border: 1px solid #cceff7;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sh-empty button:hover {
+  background: #d7f5fc;
+}
+
+/* ======================================
+   TABLE FOOTER
+====================================== */
+
+.sh-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 24px;
+  color: #8294a5;
+  background: #fbfdff;
+  border-top: 1px solid #edf3f7;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.sh-table-footer strong {
+  color: #38566d;
+  font-weight: 800;
+}
+
+/* ======================================
+   CONFIDENTIAL FOOTER
+====================================== */
+
+.sh-confidential {
+  margin: 18px 0 0;
+  color: #92a1af;
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ======================================
+   TABLET
+====================================== */
+
+@media (max-width: 1200px) {
+  .salary-history-page {
+    padding: 22px;
+  }
+
+  .sh-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sh-filter-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sh-search-box {
+    grid-column: 1 / -1;
+  }
+
+  .sh-reset-btn {
+    width: 100%;
+  }
+}
+
+/* ======================================
+   MOBILE
+====================================== */
+
+@media (max-width: 768px) {
+  .salary-history-page {
+    padding: 16px;
+  }
+
+  .sh-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 17px;
+    margin-bottom: 20px;
+  }
+
+  .sh-heading h1 {
+    font-size: 27px;
+  }
+
+  .sh-heading p {
+    font-size: 12px;
+  }
+
+  .sh-heading-actions {
+    width: 100%;
+  }
+
+  .sh-btn {
+    flex: 1;
+    min-width: 0;
+    padding: 10px;
+    font-size: 11px;
+  }
+
+  .sh-company-banner {
+    gap: 12px;
+    padding: 17px;
+    border-radius: 14px;
+  }
+
+  .sh-company-logo {
+    width: 43px;
+    height: 43px;
+    font-size: 19px;
+  }
+
+  .sh-company-info strong {
+    font-size: 13px;
+  }
+
+  .sh-company-info span {
+    font-size: 10px;
+  }
+
+  .sh-banner-period {
+    padding-left: 12px;
+  }
+
+  .sh-banner-period span {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .sh-banner-period strong {
+    font-size: 15px;
+  }
+
+  .sh-summary-grid {
+    gap: 12px;
+    margin-bottom: 17px;
+  }
+
+  .sh-summary-card {
+    padding: 15px;
+    border-radius: 14px;
+  }
+
+  .sh-card-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .sh-summary-icon {
+    width: 39px;
+    height: 39px;
+    font-size: 16px;
+  }
+
+  .sh-card-label {
+    font-size: 8px;
+    text-align: left;
+  }
+
+  .sh-card-value {
+    font-size: clamp(16px, 4vw, 22px);
+  }
+
+  .sh-card-description {
+    font-size: 10px;
+  }
+
+  .sh-paid-summary {
+    gap: 11px;
+    padding: 15px;
+    margin-bottom: 18px;
+  }
+
+  .sh-paid-summary-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 16px;
+  }
+
+  .sh-paid-summary-content > span {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  .sh-paid-summary-content strong {
+    font-size: 18px;
+  }
+
+  .sh-paid-summary-count {
+    padding-left: 12px;
+  }
+
+  .sh-paid-summary-count span {
+    font-size: 9px;
+  }
+
+  .sh-paid-summary-count strong {
+    font-size: 18px;
+  }
+
+  .sh-history-card {
+    border-radius: 15px;
+  }
+
+  .sh-history-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding: 19px 17px;
+  }
+
+  .sh-history-header h2 {
+    font-size: 18px;
+  }
+
+  .sh-history-header p {
+    font-size: 11px;
+  }
+
+  .sh-filter-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 15px 17px;
+  }
+
+  .sh-search-box {
+    grid-column: auto;
+  }
+
+  .sh-search-box,
+  .sh-filter-row select,
+  .sh-reset-btn {
+    height: 42px;
+  }
+
+  .sh-status-overview {
+    gap: 12px 18px;
+    padding: 14px 17px;
+  }
+
+  .sh-status-overview > span {
+    font-size: 10px;
+  }
+
+  .sh-table {
+    min-width: 1000px;
+  }
+
+  .sh-table th {
+    padding: 13px 12px;
+    font-size: 9px;
+  }
+
+  .sh-table td {
+    padding: 13px 12px;
+    font-size: 10px;
+  }
+
+  .sh-table-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+    padding: 14px 17px;
+    font-size: 10px;
+  }
+}
+
+/* ======================================
+   SMALL MOBILE
+====================================== */
+
+@media (max-width: 420px) {
+  .salary-history-page {
+    padding: 12px;
+  }
+
+  .sh-heading h1 {
+    font-size: 24px;
+  }
+
+  .sh-heading-actions {
+    gap: 8px;
+  }
+
+  .sh-btn {
+    gap: 6px;
+    padding: 10px 7px;
+    font-size: 10px;
+  }
+
+  .sh-company-banner {
+    flex-wrap: wrap;
+  }
+
+  .sh-company-info {
+    flex-basis: calc(100% - 60px);
+  }
+
+  .sh-banner-period {
+    flex-basis: 100%;
+    padding: 12px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.24);
+    border-left: none;
+  }
+
+  .sh-summary-grid {
+    gap: 9px;
+  }
+
+  .sh-summary-card {
+    padding: 12px;
+  }
+
+  .sh-card-value {
+    font-size: 16px;
+  }
+
+  .sh-card-label {
+    letter-spacing: 0.3px;
+  }
+
+  .sh-paid-summary {
+    flex-wrap: wrap;
+  }
+
+  .sh-paid-summary-content {
+    flex-basis: calc(100% - 60px);
+  }
+
+  .sh-paid-summary-count {
+    flex-basis: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 0 0;
+    border-top: 1px solid #dcefe8;
+    border-left: none;
+  }
+
+  .sh-history-header {
+    padding: 16px 14px;
+  }
+
+  .sh-filter-row {
+    padding: 13px 14px;
+  }
+
+  .sh-status-overview {
+    gap: 12px;
+    padding: 13px 14px;
+  }
+
+  .sh-table-footer {
+    padding: 13px 14px;
+  }
+}
+
+/* ======================================
+   REDUCED MOTION
+====================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .salary-history-page *,
+  .salary-history-page *::before,
+  .salary-history-page *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

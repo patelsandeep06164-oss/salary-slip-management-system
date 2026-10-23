@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+uploads/salary-slips/*
+!uploads/salary-slips/.gitkeep
+
+uploads/employee-documents/*
+!uploads/employee-documents/.gitkeep
+
+logs/*.log
+
+coverage/
+.DS_Store
+npm-debug.log*
+

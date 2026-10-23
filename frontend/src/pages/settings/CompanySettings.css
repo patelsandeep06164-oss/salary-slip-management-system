@@ -1,0 +1,313 @@
+
+.company-settings-page {
+  min-width: 0;
+  padding: 25px;
+  color: #1c2940;
+  background: #f5f7fb;
+  min-height: 100%;
+}
+
+.company-settings-page * {
+  box-sizing: border-box;
+}
+
+.cs-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 24px;
+}
+
+.cs-heading-icon {
+  width: 55px;
+  height: 55px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: #e8efff;
+  color: #3867d6;
+  font-size: 24px;
+}
+
+.cs-eyebrow {
+  color: #3867d6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+}
+
+.cs-heading-text h1 {
+  margin: 5px 0 7px;
+  font-size: 27px;
+}
+
+.cs-heading-text p {
+  margin: 0;
+  color: #7e899d;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.cs-card {
+  margin-bottom: 19px;
+  padding: 23px;
+  background: #fff;
+  border: 1px solid #e7ecf4;
+  border-radius: 14px;
+  box-shadow: 0 5px 18px #23385f08;
+}
+
+.cs-card-title {
+  margin-bottom: 22px;
+}
+
+.cs-card-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 7px;
+  font-size: 16px;
+}
+
+.cs-card-title h2 svg {
+  color: #3867d6;
+}
+
+.cs-card-title p {
+  margin: 0;
+  color: #8792a5;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.cs-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 19px;
+}
+
+.cs-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-field label {
+  color: #45536c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cs-required {
+  color: #d64b5a;
+}
+
+.cs-field input,
+.cs-field select,
+.cs-field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  padding: 11px 12px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: #26344d;
+  font: inherit;
+  font-size: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.cs-field textarea {
+  resize: vertical;
+  min-height: 85px;
+}
+
+.cs-field input:focus,
+.cs-field select:focus,
+.cs-field textarea:focus {
+  border-color: #6387e8;
+  box-shadow: 0 0 0 3px #3867d614;
+}
+
+.cs-field input[aria-invalid="true"] {
+  border-color: #d64b5a;
+}
+
+.cs-full-width {
+  grid-column: 1 / -1;
+}
+
+.cs-error {
+  color: #c83e50;
+  font-size: 11px;
+}
+
+.cs-logo-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 22px;
+  padding: 14px;
+  border: 1px dashed #dce3ef;
+  border-radius: 10px;
+  background: #fafbfe;
+}
+
+.cs-logo-box {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: #e8efff;
+  color: #3867d6;
+  font-size: 24px;
+}
+
+.cs-logo-box img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cs-logo-preview strong {
+  font-size: 12px;
+}
+
+.cs-logo-preview p {
+  margin: 5px 0 0;
+  color: #8792a5;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.cs-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.cs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.cs-btn:hover {
+  transform: translateY(-1px);
+}
+
+.cs-outline {
+  color: #53617a;
+  border-color: #dfe5ef;
+  background: #fff;
+}
+
+.cs-secondary {
+  color: #315fc6;
+  border-color: #d9e4ff;
+  background: #edf2ff;
+}
+
+.cs-save {
+  color: #fff;
+  background: #3867d6;
+  box-shadow: 0 5px 12px #3867d626;
+}
+
+.cs-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.cs-message button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.cs-message.success {
+  color: #14734f;
+  background: #e8f8ef;
+  border: 1px solid #c9eedb;
+}
+
+.cs-message.error {
+  color: #b52d42;
+  background: #fff0f1;
+  border: 1px solid #ffd8dd;
+}
+
+.cs-storage-note {
+  margin: 14px 2px 0;
+  color: #8993a5;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+@media (max-width: 650px) {
+  .company-settings-page {
+    padding: 16px 12px;
+  }
+
+  .cs-header {
+    align-items: flex-start;
+  }
+
+  .cs-heading-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 19px;
+  }
+
+  .cs-heading-text h1 {
+    font-size: 22px;
+  }
+
+  .cs-card {
+    padding: 17px 13px;
+  }
+
+  .cs-form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .cs-full-width {
+    grid-column: auto;
+  }
+
+  .cs-actions {
+    flex-direction: column-reverse;
+  }
+
+  .cs-btn {
+    width: 100%;
+  }
+}

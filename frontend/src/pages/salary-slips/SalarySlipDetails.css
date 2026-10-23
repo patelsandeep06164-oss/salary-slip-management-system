@@ -1,0 +1,1287 @@
+
+/* =========================================
+   SALARY SLIP DETAILS
+   TechIT Solution - Payslip Theme
+   Navy Blue + Light Blue + Green + Coral
+========================================= */
+
+.ssd-page,
+.ssd-page * {
+  box-sizing: border-box;
+}
+
+.ssd-page {
+  --ssd-navy: #092b55;
+  --ssd-navy-light: #163f6d;
+  --ssd-blue: #a8d2e9;
+  --ssd-blue-light: #e5f2f9;
+  --ssd-green: #b6d9ad;
+  --ssd-green-light: #edf5e9;
+  --ssd-coral: #e7aaa0;
+  --ssd-coral-light: #f9e9e6;
+  --ssd-border: #9ba9b3;
+  --ssd-text: #202b36;
+  --ssd-muted: #5e6a75;
+
+  width: 100%;
+  min-height: 100vh;
+  padding: 28px;
+  background: #e9eef3;
+  color: var(--ssd-text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ssd-page button,
+.ssd-page a {
+  font: inherit;
+}
+
+.ssd-page button {
+  cursor: pointer;
+}
+
+/* =========================================
+   PAGE HEADER
+========================================= */
+
+.ssd-header {
+  max-width: 1180px;
+  margin: 0 auto 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.ssd-header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ssd-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: var(--ssd-navy);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ssd-back-link:hover {
+  color: #1671ad;
+}
+
+.ssd-eyebrow {
+  margin: 0;
+  color: #637587;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.ssd-header h1,
+.ssd-header h2 {
+  margin: 0;
+  color: var(--ssd-navy);
+}
+
+.ssd-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ssd-button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.ssd-button:hover {
+  transform: translateY(-1px);
+}
+
+.ssd-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.ssd-button-light {
+  color: var(--ssd-navy);
+  background: #fff;
+  border-color: #c6d1dc;
+}
+
+.ssd-button-light:hover {
+  background: #edf5fa;
+}
+
+.ssd-button-primary {
+  color: #fff;
+  background: var(--ssd-navy);
+  border-color: var(--ssd-navy);
+}
+
+.ssd-button-primary:hover {
+  background: #174a7b;
+}
+
+/* =========================================
+   LOADING AND ERROR STATES
+========================================= */
+
+.ssd-state {
+  max-width: 700px;
+  min-height: 300px;
+  margin: 35px auto;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #d5dfe7;
+  border-radius: 8px;
+  box-shadow: 0 5px 20px rgba(9, 43, 85, 0.06);
+}
+
+.ssd-state h2,
+.ssd-state h3,
+.ssd-state p {
+  margin: 0;
+}
+
+.ssd-state h2,
+.ssd-state h3 {
+  color: var(--ssd-navy);
+}
+
+.ssd-state p {
+  color: var(--ssd-muted);
+}
+
+.ssd-error-state > svg {
+  color: #c64c43;
+  font-size: 34px;
+}
+
+.ssd-state-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.ssd-spin {
+  animation: ssd-rotate 1s linear infinite;
+}
+
+@keyframes ssd-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ssd-alert {
+  max-width: 1180px;
+  margin: 0 auto 16px;
+  padding: 12px 15px;
+  color: #8c3029;
+  background: #fff0ed;
+  border: 1px solid #e7b6af;
+  border-left: 4px solid #c94e43;
+  border-radius: 4px;
+}
+
+/* =========================================
+   SALARY SLIP PAPER
+========================================= */
+
+.ssd-slip {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #7d929f;
+  box-shadow: 0 7px 25px rgba(20, 43, 66, 0.12);
+}
+
+/* =========================================
+   COMPANY / SLIP HEADER
+========================================= */
+
+.ssd-slip-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 4px 4px 17px;
+  border-bottom: 2px solid var(--ssd-navy);
+}
+
+.ssd-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ssd-brand-icon {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: var(--ssd-navy);
+  border-radius: 7px;
+  font-size: 24px;
+}
+
+.ssd-brand h1,
+.ssd-brand h2,
+.ssd-brand h3,
+.ssd-brand p {
+  margin: 0;
+}
+
+.ssd-brand h1,
+.ssd-brand h2,
+.ssd-brand h3 {
+  color: #101820;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.ssd-brand p {
+  margin-top: 3px;
+  color: #4b5865;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+}
+
+.ssd-slip-number {
+  min-width: 0;
+  text-align: right;
+}
+
+.ssd-slip-number h2,
+.ssd-slip-number h3,
+.ssd-slip-number p {
+  margin: 0;
+}
+
+.ssd-slip-number h2,
+.ssd-slip-number h3 {
+  color: var(--ssd-navy);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.ssd-slip-number p {
+  margin-top: 4px;
+  color: #45515c;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.ssd-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 4px 10px;
+  color: var(--ssd-navy);
+  background: var(--ssd-blue-light);
+  border: 1px solid #a9cddd;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ssd-status-paid,
+.ssd-status-generated {
+  color: #22623a;
+  background: #e5f4e8;
+  border-color: #a9d2b2;
+}
+
+.ssd-status-pending {
+  color: #8b5a0c;
+  background: #fff3d9;
+  border-color: #e6cd8f;
+}
+
+.ssd-status-failed,
+.ssd-status-cancelled {
+  color: #9b302b;
+  background: #ffebe9;
+  border-color: #e6b4b0;
+}
+
+/* =========================================
+   PAY PERIOD BANNER
+========================================= */
+
+.ssd-period-banner {
+  min-height: 42px;
+  margin: 0 0 15px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #fff;
+  background: var(--ssd-navy);
+  border: 1px solid #061f3f;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ssd-period-banner > * {
+  min-width: 0;
+}
+
+.ssd-period-banner p,
+.ssd-period-banner h2,
+.ssd-period-banner h3 {
+  margin: 0;
+}
+
+.ssd-period-banner small {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.ssd-period-banner .ssd-pay-date {
+  padding: 5px 9px;
+  color: var(--ssd-navy);
+  background: #e7f0f7;
+  border-radius: 3px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* =========================================
+   NET PAY SUMMARY
+========================================= */
+
+.ssd-net-summary {
+  margin: 0 0 16px;
+  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: var(--ssd-blue-light);
+  border: 1px solid #8ebbd5;
+}
+
+.ssd-net-summary h2,
+.ssd-net-summary h3,
+.ssd-net-summary p {
+  margin: 0;
+}
+
+.ssd-net-summary h2,
+.ssd-net-summary h3 {
+  color: var(--ssd-navy);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.ssd-net-summary p {
+  margin-top: 3px;
+  color: #536575;
+  font-size: 11px;
+}
+
+.ssd-net-summary strong {
+  color: var(--ssd-navy);
+  font-size: clamp(20px, 2.4vw, 30px);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+/* =========================================
+   SECTION HEADINGS
+========================================= */
+
+.ssd-section {
+  min-width: 0;
+  margin: 0 0 15px;
+}
+
+.ssd-section-title {
+  margin: 0;
+  padding: 8px 11px;
+  color: var(--ssd-navy);
+  background: var(--ssd-blue);
+  border: 1px solid #91b8cd;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.ssd-section-title h2,
+.ssd-section-title h3,
+.ssd-section-title p {
+  margin: 0;
+  font: inherit;
+}
+
+/* =========================================
+   EMPLOYEE / PAYROLL INFORMATION GRID
+========================================= */
+
+.ssd-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid var(--ssd-border);
+  border-top: 0;
+}
+
+.ssd-info-item {
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: minmax(95px, 42%) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  background: #fff;
+  border-right: 1px solid #c2cbd1;
+  border-bottom: 1px solid #c2cbd1;
+  overflow-wrap: anywhere;
+}
+
+.ssd-info-item:nth-child(2n) {
+  border-right: 0;
+}
+
+.ssd-info-item:last-child,
+.ssd-info-item:nth-last-child(2) {
+  border-bottom: 0;
+}
+
+.ssd-info-item > span:first-child,
+.ssd-info-item > strong:first-child,
+.ssd-info-item > label {
+  color: #273543;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ssd-info-item > span:last-child,
+.ssd-info-item > strong:last-child {
+  min-width: 0;
+  color: #303941;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+/* =========================================
+   EARNINGS AND DEDUCTIONS COLUMNS
+========================================= */
+
+.ssd-salary-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.ssd-salary-section {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ssd-border);
+}
+
+.ssd-salary-section .ssd-section-title {
+  color: #142a35;
+}
+
+.ssd-salary-section:first-child .ssd-section-title {
+  background: var(--ssd-green);
+  border-color: #a3c89a;
+}
+
+.ssd-salary-section:last-child .ssd-section-title {
+  background: var(--ssd-coral);
+  border-color: #d7a098;
+}
+
+/* =========================================
+   SALARY ROWS
+========================================= */
+
+.ssd-salary-row {
+  min-height: 32px;
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(45px, 0.65fr) minmax(65px, 0.8fr);
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-bottom: 1px solid #c7cfd4;
+  font-size: 11px;
+}
+
+.ssd-salary-row:last-child {
+  border-bottom: 0;
+}
+
+.ssd-salary-row > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ssd-salary-row > :nth-child(2) {
+  text-align: center;
+}
+
+.ssd-salary-row > :last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ssd-salary-row:first-child {
+  color: var(--ssd-navy);
+  background: #d5e9f4;
+  font-weight: 800;
+}
+
+.ssd-salary-section:first-child .ssd-salary-row:first-child {
+  background: #e1edf8;
+}
+
+.ssd-salary-section:last-child .ssd-salary-row:first-child {
+  background: #e1edf8;
+}
+
+.ssd-deduction {
+  color: #a13d35;
+}
+
+.ssd-deduction-note {
+  padding: 8px 10px;
+  color: #6a5552;
+  background: #fff5f3;
+  border-top: 1px solid #e4c3bf;
+  font-size: 10px;
+}
+
+.ssd-salary-total {
+  min-height: 40px;
+  padding: 9px 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  color: var(--ssd-navy);
+  background: var(--ssd-blue);
+  border-top: 1px solid #8cb9d1;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ssd-salary-total strong {
+  text-align: right;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================
+   NET TOTAL
+========================================= */
+
+.ssd-net-total {
+  margin-top: 14px;
+  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  color: var(--ssd-navy);
+  background: #a9d0e7;
+  border: 1px solid #7baac5;
+}
+
+.ssd-net-total > * {
+  margin: 0;
+}
+
+.ssd-net-total > :first-child {
+  font-size: 21px;
+  font-weight: 900;
+}
+
+.ssd-net-total > :last-child {
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: 900;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* =========================================
+   PAYMENT FOOTER
+========================================= */
+
+.ssd-payment-footer {
+  margin-top: 0;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  background: #f5f8fa;
+  border: 1px solid #b8c5ce;
+}
+
+.ssd-payment-footer > * {
+  min-width: 0;
+}
+
+.ssd-payment-footer p {
+  margin: 0;
+}
+
+.ssd-payment-footer strong {
+  color: var(--ssd-navy);
+}
+
+.ssd-payment-total {
+  color: var(--ssd-navy);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ssd-note {
+  margin-top: 13px;
+  padding: 10px 12px;
+  color: #38434d;
+  background: #fafbfc;
+  border-left: 3px solid var(--ssd-navy);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.ssd-note h3,
+.ssd-note h4,
+.ssd-note p {
+  margin: 0 0 5px;
+}
+
+.ssd-note h3,
+.ssd-note h4 {
+  color: var(--ssd-navy);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ssd-note ol,
+.ssd-note ul {
+  margin: 5px 0 0;
+  padding-left: 19px;
+}
+
+.ssd-note li {
+  margin: 2px 0;
+}
+
+.ssd-signature-row {
+  margin-top: 20px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+.ssd-signature-row > * {
+  min-width: 0;
+}
+
+.ssd-signature {
+  width: 220px;
+  max-width: 100%;
+  padding-top: 35px;
+  text-align: center;
+  border-top: 1px solid #7b8993;
+}
+
+.ssd-signature p {
+  margin: 5px 0 0;
+  color: #34414c;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ssd-confidential {
+  margin-top: 15px;
+  padding-top: 8px;
+  color: #65727e;
+  border-top: 1px solid #d4dce2;
+  font-size: 9px;
+  text-align: center;
+}
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (max-width: 900px) {
+  .ssd-page {
+    padding: 18px;
+  }
+
+  .ssd-slip {
+    padding: 18px;
+  }
+
+  .ssd-slip-top {
+    gap: 14px;
+  }
+
+  .ssd-brand h1,
+  .ssd-brand h2,
+  .ssd-brand h3 {
+    font-size: 19px;
+  }
+
+  .ssd-slip-number h2,
+  .ssd-slip-number h3 {
+    font-size: 14px;
+  }
+
+  .ssd-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ssd-salary-columns {
+    gap: 10px;
+  }
+
+  .ssd-salary-row {
+    grid-template-columns: minmax(0, 1.3fr) minmax(35px, 0.6fr) minmax(55px, 0.8fr);
+    gap: 5px;
+    padding: 7px 6px;
+    font-size: 10px;
+  }
+
+  .ssd-info-item {
+    grid-template-columns: minmax(85px, 42%) minmax(0, 1fr);
+    gap: 5px;
+  }
+}
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 600px) {
+  .ssd-page {
+    min-height: 100vh;
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .ssd-header {
+    align-items: flex-start;
+    gap: 13px;
+    margin-bottom: 14px;
+  }
+
+  .ssd-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ssd-button {
+    min-height: 38px;
+    padding: 9px 11px;
+    font-size: 11px;
+  }
+
+  .ssd-slip {
+    padding: 12px;
+    border: 1px solid #9ba9b3;
+    box-shadow: 0 3px 12px rgba(20, 43, 66, 0.08);
+  }
+
+  .ssd-slip-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 12px;
+  }
+
+  .ssd-brand {
+    width: 100%;
+  }
+
+  .ssd-brand-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 19px;
+  }
+
+  .ssd-brand h1,
+  .ssd-brand h2,
+  .ssd-brand h3 {
+    font-size: 18px;
+  }
+
+  .ssd-brand p {
+    font-size: 8px;
+    letter-spacing: 1px;
+  }
+
+  .ssd-slip-number {
+    width: 100%;
+    text-align: left;
+  }
+
+  .ssd-slip-number h2,
+  .ssd-slip-number h3 {
+    font-size: 14px;
+  }
+
+  .ssd-slip-number p {
+    font-size: 10px;
+  }
+
+  .ssd-period-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .ssd-period-banner .ssd-pay-date {
+    white-space: normal;
+  }
+
+  .ssd-net-summary {
+    padding: 10px;
+  }
+
+  .ssd-net-summary h2,
+  .ssd-net-summary h3 {
+    font-size: 15px;
+  }
+
+  .ssd-net-summary strong {
+    font-size: 20px;
+  }
+
+  .ssd-section-title {
+    padding: 8px;
+    font-size: 11px;
+  }
+
+  .ssd-info-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ssd-info-item {
+    min-height: 31px;
+    grid-template-columns: minmax(105px, 42%) minmax(0, 1fr);
+    padding: 7px;
+    border-right: 0;
+    border-bottom: 1px solid #c2cbd1;
+  }
+
+  .ssd-info-item:last-child,
+  .ssd-info-item:nth-last-child(2) {
+    border-bottom: 1px solid #c2cbd1;
+  }
+
+  .ssd-info-item:last-child {
+    border-bottom: 0;
+  }
+
+  .ssd-info-item > span:first-child,
+  .ssd-info-item > strong:first-child,
+  .ssd-info-item > label,
+  .ssd-info-item > span:last-child,
+  .ssd-info-item > strong:last-child {
+    font-size: 10px;
+  }
+
+  .ssd-salary-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin-top: 12px;
+  }
+
+  .ssd-salary-row {
+    grid-template-columns: minmax(0, 1.4fr) minmax(45px, 0.65fr) minmax(65px, 0.8fr);
+    gap: 7px;
+    padding: 8px;
+    font-size: 11px;
+  }
+
+  .ssd-salary-total {
+    padding: 9px;
+    font-size: 11px;
+  }
+
+  .ssd-salary-total strong {
+    font-size: 13px;
+  }
+
+  .ssd-net-total {
+    padding: 11px;
+    gap: 8px;
+  }
+
+  .ssd-net-total > :first-child {
+    font-size: 16px;
+  }
+
+  .ssd-net-total > :last-child {
+    font-size: 20px;
+  }
+
+  .ssd-payment-footer {
+    flex-direction: column;
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .ssd-signature-row {
+    margin-top: 18px;
+  }
+
+  .ssd-signature {
+    width: 180px;
+  }
+}
+
+/* =========================================
+   SMALL MOBILE
+========================================= */
+
+@media (max-width: 360px) {
+  .ssd-page {
+    padding: 6px;
+  }
+
+  .ssd-slip {
+    padding: 8px;
+  }
+
+  .ssd-brand h1,
+  .ssd-brand h2,
+  .ssd-brand h3 {
+    font-size: 16px;
+  }
+
+  .ssd-info-item {
+    grid-template-columns: minmax(90px, 42%) minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .ssd-salary-row {
+    grid-template-columns: minmax(0, 1.3fr) minmax(35px, 0.55fr) minmax(55px, 0.8fr);
+    gap: 4px;
+    padding: 7px 5px;
+    font-size: 10px;
+  }
+
+  .ssd-net-total > :first-child {
+    font-size: 14px;
+  }
+
+  .ssd-net-total > :last-child {
+    font-size: 18px;
+  }
+}
+
+/* =========================================
+   PRINT / DOWNLOAD AS PDF
+========================================= */
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 7mm;
+  }
+
+  html,
+  body {
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .ssd-page {
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #202b36 !important;
+    font-size: 10px !important;
+  }
+
+  .ssd-header,
+  .ssd-alert,
+  .no-print {
+    display: none !important;
+  }
+
+  .ssd-slip {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 5mm !important;
+    border: 1px solid #7d929f !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .ssd-slip-top {
+    padding-bottom: 10px !important;
+  }
+
+  .ssd-brand h1,
+  .ssd-brand h2,
+  .ssd-brand h3 {
+    font-size: 20px !important;
+  }
+
+  .ssd-slip-number h2,
+  .ssd-slip-number h3 {
+    font-size: 14px !important;
+  }
+
+  .ssd-period-banner {
+    min-height: 32px !important;
+    margin-bottom: 9px !important;
+    padding: 7px 10px !important;
+    font-size: 12px !important;
+    background: var(--ssd-navy) !important;
+    color: #fff !important;
+    break-after: avoid;
+  }
+
+  .ssd-net-summary {
+    margin-bottom: 9px !important;
+    padding: 8px 10px !important;
+    break-inside: avoid;
+  }
+
+  .ssd-section {
+    margin-bottom: 9px !important;
+    break-inside: avoid;
+  }
+
+  .ssd-section-title {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+
+  .ssd-info-item {
+    min-height: 25px !important;
+    padding: 5px 7px !important;
+  }
+
+  .ssd-info-item > span:first-child,
+  .ssd-info-item > strong:first-child,
+  .ssd-info-item > label,
+  .ssd-info-item > span:last-child,
+  .ssd-info-item > strong:last-child {
+    font-size: 9px !important;
+  }
+
+  .ssd-salary-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+    margin-top: 9px !important;
+  }
+
+  .ssd-salary-row {
+    min-height: 25px !important;
+    padding: 5px 6px !important;
+    font-size: 9px !important;
+  }
+
+  .ssd-salary-total {
+    min-height: 30px !important;
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+  }
+
+  .ssd-salary-total strong {
+    font-size: 11px !important;
+  }
+
+  .ssd-net-total {
+    margin-top: 9px !important;
+    padding: 8px 12px !important;
+    break-inside: avoid;
+  }
+
+  .ssd-net-total > :first-child {
+    font-size: 17px !important;
+  }
+
+  .ssd-net-total > :last-child {
+    font-size: 23px !important;
+  }
+
+  .ssd-payment-footer,
+  .ssd-note,
+  .ssd-signature-row {
+    break-inside: avoid;
+  }
+
+  .ssd-payment-footer {
+    padding: 7px 9px !important;
+  }
+
+  .ssd-note {
+    margin-top: 8px !important;
+    padding: 7px 9px !important;
+    font-size: 8px !important;
+  }
+
+  .ssd-signature-row {
+    margin-top: 12px !important;
+  }
+
+  .ssd-signature {
+    padding-top: 25px !important;
+  }
+
+  .ssd-confidential {
+    margin-top: 8px !important;
+    padding-top: 5px !important;
+  }
+
+  .ssd-status {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* =========================================
+   PRINT ONLY SALARY SLIP
+========================================= */
+
+@media print {
+  /* Hide all page elements by default */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Show only the salary slip and its contents */
+  .ssd-slip,
+  .ssd-slip * {
+    visibility: visible !important;
+  }
+
+  /* Place salary slip at the top of the printed page */
+  .ssd-slip {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 8px !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 1px solid #7d929f !important;
+  }
+
+  /* Hide navigation, sidebar, footer and action buttons */
+  nav,
+  aside,
+  header,
+  footer,
+  .navbar,
+  .sidebar,
+  .footer,
+  .no-print,
+  .ssd-header,
+  .ssd-header-actions {
+    display: none !important;
+  }
+
+  /* Remove page background and spacing */
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  .ssd-page {
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  /* Preserve payslip colors */
+  .ssd-period-banner,
+  .ssd-section-title,
+  .ssd-salary-total,
+  .ssd-net-total {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 7mm;
+  }
+}

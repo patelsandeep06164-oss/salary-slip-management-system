@@ -1,0 +1,813 @@
+/* ========================================
+   PAYROLL SETTINGS - MAIN PAGE
+======================================== */
+
+.payroll-settings-page,
+.payroll-settings-page * {
+  box-sizing: border-box;
+}
+
+.payroll-settings-page {
+  --ps-primary: #078b95;
+  --ps-blue: #2563eb;
+  --ps-text: #183849;
+  --ps-muted: #718492;
+  --ps-border: #dce8ee;
+
+  width: 100%;
+  min-height: 100vh;
+  padding: 28px clamp(14px, 2.8vw, 36px) 36px;
+  color: var(--ps-text);
+  background: linear-gradient(
+    135deg,
+    #e8fbfa 0%,
+    #eef5ff 50%,
+    #f5f8ff 100%
+  );
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* ========================================
+   HEADER
+======================================== */
+
+.ps-header {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  max-width: 1200px;
+  margin: 0 auto 24px;
+}
+
+.ps-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 62px;
+  width: 62px;
+  height: 62px;
+  color: #fff;
+  font-size: 25px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #08a6a6, #2563eb);
+  box-shadow: 0 9px 24px rgba(8, 127, 140, 0.2);
+}
+
+.ps-eyebrow {
+  display: inline-block;
+  margin-bottom: 5px;
+  color: #078b95;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+}
+
+.ps-header h1 {
+  margin: 0;
+  color: #153b50;
+  font-size: clamp(25px, 3vw, 34px);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.ps-header p {
+  margin: 8px 0 0;
+  color: var(--ps-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ========================================
+   FORM AND CARDS
+======================================== */
+
+.payroll-settings-page form,
+.ps-message,
+.ps-storage-note {
+  width: 100%;
+  max-width: 1200px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.payroll-settings-page form {
+  display: flex;
+  flex-direction: column;
+  gap: 19px;
+}
+
+.ps-card {
+  min-width: 0;
+  padding: clamp(19px, 2.5vw, 28px);
+  border: 1px solid #dce9ef;
+  border-radius: 19px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 28px rgba(31, 83, 107, 0.07);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.ps-card:hover {
+  border-color: #c6e3e9;
+  box-shadow: 0 12px 30px rgba(31, 83, 107, 0.1);
+}
+
+/* ========================================
+   SECTION HEADINGS
+======================================== */
+
+.ps-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 23px;
+}
+
+.ps-section-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  color: #087f8c;
+  font-size: 19px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #d8fbf5, #e0ebff);
+}
+
+.ps-section-heading h2 {
+  margin: 0 0 5px;
+  color: #1a4054;
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.ps-section-heading p {
+  margin: 0;
+  color: var(--ps-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ========================================
+   FORM GRID
+======================================== */
+
+.ps-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 19px 22px;
+}
+
+.ps-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ps-field label {
+  color: #294b5d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ps-field input,
+.ps-field select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 11px 13px;
+  border: 1px solid #d6e3e9;
+  border-radius: 10px;
+  outline: none;
+  color: #244657;
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.ps-field input::placeholder {
+  color: #9aabb5;
+}
+
+.ps-field input:focus,
+.ps-field select:focus {
+  border-color: #0a9da4;
+  box-shadow: 0 0 0 3px rgba(10, 157, 164, 0.12);
+}
+
+.ps-field input[aria-invalid="true"] {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.08);
+}
+
+.ps-field select {
+  cursor: pointer;
+}
+
+.ps-error {
+  color: #c62828;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ========================================
+   INFO AND WARNING BOXES
+======================================== */
+
+.ps-info,
+.ps-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 21px;
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+
+.ps-info {
+  color: #087f8c;
+  border: 1px solid #c5e9ed;
+  background: #effbfc;
+}
+
+.ps-warning {
+  color: #98620c;
+  border: 1px solid #f1dfb4;
+  background: #fff9e9;
+}
+
+.ps-info > svg,
+.ps-warning > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  font-size: 17px;
+}
+
+.ps-info p,
+.ps-warning p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.ps-warning p {
+  color: #7d6840;
+}
+
+/* ========================================
+   TOGGLE ROWS
+======================================== */
+
+.ps-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: 0;
+  padding: 17px 2px;
+  border-bottom: 1px solid #eaf0f3;
+  cursor: pointer;
+}
+
+.ps-toggle-row:first-child {
+  padding-top: 0;
+}
+
+.ps-toggle-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ps-toggle-row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.ps-toggle-row strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #24485b;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.ps-toggle-row p {
+  margin: 0;
+  color: #788b98;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ========================================
+   CUSTOM SWITCH
+======================================== */
+
+.ps-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 47px;
+  width: 47px;
+  height: 26px;
+}
+
+.ps-switch input {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ps-switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 30px;
+  background: #cbd6df;
+  transition: background 0.2s ease;
+}
+
+.ps-switch-track::before {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  content: "";
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s ease;
+}
+
+.ps-switch.active .ps-switch-track {
+  background: linear-gradient(135deg, #08a6a6, #2563eb);
+}
+
+.ps-switch.active .ps-switch-track::before {
+  transform: translateX(21px);
+}
+
+.ps-switch input:focus-visible + .ps-switch-track {
+  outline: 3px solid rgba(8, 139, 149, 0.3);
+  outline-offset: 3px;
+}
+
+/* ========================================
+   OVERTIME AND DEDUCTION FIELDS
+======================================== */
+
+.ps-inline-field {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.75fr) minmax(0, 1.25fr);
+  align-items: center;
+  gap: 20px;
+  margin: 15px 0 18px;
+  padding: 17px;
+  border: 1px solid #d9e9ef;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #f4fcfc, #f6f8ff);
+}
+
+.ps-inline-field > p {
+  margin: 0;
+  color: #708492;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.ps-deduction-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ps-deduction-list .ps-inline-field {
+  margin-top: 14px;
+}
+
+/* ========================================
+   SALARY SLIP PREVIEW
+======================================== */
+
+.ps-slip-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin: 20px 0;
+  padding: 17px 19px;
+  border: 1px dashed #91d2d7;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #effcfb, #f0f5ff);
+}
+
+.ps-slip-preview span {
+  color: #587280;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ps-slip-preview strong {
+  flex-shrink: 0;
+  padding: 9px 13px;
+  border-radius: 9px;
+  color: #087f8c;
+  background: #fff;
+  font-size: 15px;
+  letter-spacing: 0.6px;
+  overflow-wrap: anywhere;
+}
+
+/* ========================================
+   ACTION BUTTONS
+======================================== */
+
+.ps-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 11px;
+  padding-top: 1px;
+}
+
+.ps-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 45px;
+  padding: 11px 17px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.ps-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 15px rgba(31, 83, 107, 0.12);
+}
+
+.ps-button:active {
+  transform: translateY(0);
+}
+
+.ps-reset {
+  color: #526978;
+  border-color: #d5e1e8;
+  background: #fff;
+}
+
+.ps-reset:hover {
+  background: #f4f8fb;
+}
+
+.ps-default {
+  color: #087f8c;
+  border-color: #bde4e7;
+  background: #effbfb;
+}
+
+.ps-default:hover {
+  background: #e1f7f6;
+}
+
+.ps-save {
+  color: #fff;
+  background: linear-gradient(135deg, #079da3, #2563eb);
+  box-shadow: 0 6px 16px rgba(8, 127, 140, 0.17);
+}
+
+.ps-save:hover {
+  background: linear-gradient(135deg, #078a93, #1d4ed8);
+}
+
+/* ========================================
+   SUCCESS AND ERROR MESSAGES
+======================================== */
+
+.ps-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-bottom: 19px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ps-message > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ps-message > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ps-message button {
+  flex-shrink: 0;
+  padding: 0 3px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ps-message.success {
+  color: #176c49;
+  border-color: #bce7d1;
+  background: #effbf5;
+}
+
+.ps-message.error {
+  color: #a52c36;
+  border-color: #f2c7cb;
+  background: #fff4f4;
+}
+
+/* ========================================
+   FOOTER NOTE
+======================================== */
+
+.ps-storage-note {
+  margin-top: 19px;
+  margin-bottom: 0;
+  color: #718592;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* ========================================
+   TABLET RESPONSIVE
+======================================== */
+
+@media (max-width: 900px) {
+  .payroll-settings-page {
+    padding: 23px 18px 30px;
+  }
+
+  .ps-card {
+    padding: 22px;
+  }
+
+  .ps-inline-field {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .ps-actions {
+    gap: 9px;
+  }
+
+  .ps-button {
+    padding: 11px 13px;
+  }
+}
+
+/* ========================================
+   MOBILE RESPONSIVE
+======================================== */
+
+@media (max-width: 640px) {
+  .payroll-settings-page {
+    padding: 19px 12px 25px;
+  }
+
+  .ps-header {
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 19px;
+  }
+
+  .ps-header-icon {
+    flex-basis: 49px;
+    width: 49px;
+    height: 49px;
+    border-radius: 14px;
+    font-size: 21px;
+  }
+
+  .ps-header h1 {
+    font-size: 25px;
+  }
+
+  .ps-header p {
+    margin-top: 6px;
+    font-size: 12px;
+  }
+
+  .ps-eyebrow {
+    font-size: 10px;
+    letter-spacing: 1.3px;
+  }
+
+  .payroll-settings-page form {
+    gap: 14px;
+  }
+
+  .ps-card {
+    padding: 18px 15px;
+    border-radius: 15px;
+  }
+
+  .ps-section-heading {
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 19px;
+  }
+
+  .ps-section-icon {
+    flex-basis: 38px;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    font-size: 16px;
+  }
+
+  .ps-section-heading h2 {
+    font-size: 16px;
+  }
+
+  .ps-section-heading p {
+    font-size: 11px;
+  }
+
+  .ps-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .ps-field input,
+  .ps-field select {
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  .ps-inline-field {
+    padding: 13px;
+    gap: 11px;
+  }
+
+  .ps-toggle-row {
+    gap: 12px;
+    padding: 15px 0;
+  }
+
+  .ps-toggle-row strong {
+    font-size: 12px;
+  }
+
+  .ps-toggle-row p {
+    font-size: 11px;
+  }
+
+  .ps-info,
+  .ps-warning {
+    gap: 9px;
+    padding: 12px;
+  }
+
+  .ps-info p,
+  .ps-warning p {
+    font-size: 11px;
+  }
+
+  .ps-slip-preview {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .ps-slip-preview span {
+    font-size: 12px;
+  }
+
+  .ps-slip-preview strong {
+    font-size: 14px;
+  }
+
+  .ps-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .ps-button {
+    width: 100%;
+    min-height: 44px;
+    font-size: 12px;
+  }
+
+  .ps-storage-note {
+    font-size: 11px;
+  }
+}
+
+/* ========================================
+   SMALL MOBILE
+======================================== */
+
+@media (max-width: 380px) {
+  .payroll-settings-page {
+    padding: 15px 9px 22px;
+  }
+
+  .ps-header {
+    gap: 9px;
+  }
+
+  .ps-header-icon {
+    flex-basis: 43px;
+    width: 43px;
+    height: 43px;
+    font-size: 18px;
+  }
+
+  .ps-header h1 {
+    font-size: 22px;
+  }
+
+  .ps-card {
+    padding: 15px 12px;
+  }
+
+  .ps-section-heading {
+    gap: 8px;
+  }
+
+  .ps-section-icon {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+  }
+
+  .ps-section-heading h2 {
+    font-size: 14px;
+  }
+
+  .ps-toggle-row {
+    gap: 8px;
+  }
+
+  .ps-switch {
+    flex-basis: 43px;
+    width: 43px;
+    height: 24px;
+  }
+
+  .ps-switch-track::before {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ps-switch.active .ps-switch-track::before {
+    transform: translateX(19px);
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+======================================== */
+
+.ps-button:focus-visible,
+.ps-message button:focus-visible {
+  outline: 3px solid rgba(8, 139, 149, 0.45);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payroll-settings-page *,
+  .payroll-settings-page *::before,
+  .payroll-settings-page *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
