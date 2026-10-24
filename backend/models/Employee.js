@@ -7,16 +7,15 @@ const employeeSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      uppercase: true,
       trim: true,
+      uppercase: true,
     },
 
+    // Link only when an actual User ObjectId exists.
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      unique: true,
-      sparse: true,
-      default: null,
+      default: undefined,
     },
 
     firstName: {
@@ -36,9 +35,10 @@ const employeeSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      lowercase: true,
       trim: true,
+      lowercase: true,
       match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      unique: true,
     },
 
     phone: {
@@ -47,7 +47,6 @@ const employeeSchema = new mongoose.Schema(
       default: "",
     },
 
-    // Employee PAN Details
     pan: {
       type: String,
       uppercase: true,
@@ -67,11 +66,11 @@ const employeeSchema = new mongoose.Schema(
     },
 
     address: {
-      street: { type: String, default: "" },
-      city: { type: String, default: "" },
-      state: { type: String, default: "" },
-      postalCode: { type: String, default: "" },
-      country: { type: String, default: "India" },
+      street: { type: String, trim: true, default: "" },
+      city: { type: String, trim: true, default: "" },
+      state: { type: String, trim: true, default: "" },
+      postalCode: { type: String, trim: true, default: "" },
+      country: { type: String, trim: true, default: "India" },
     },
 
     department: {
@@ -136,6 +135,7 @@ const employeeSchema = new mongoose.Schema(
     bankDetails: {
       accountHolderName: {
         type: String,
+        trim: true,
         default: "",
       },
       accountNumber: {
@@ -150,6 +150,7 @@ const employeeSchema = new mongoose.Schema(
       },
       bankName: {
         type: String,
+        trim: true,
         default: "",
       },
     },
@@ -175,12 +176,28 @@ const employeeSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-employeeSchema.index({ email: 1 }, { unique: true });
+// Employee listing filters.
 employeeSchema.index({ department: 1, status: 1 });
 
+// Only real User ObjectIds must be unique.
+// Documents with user missing or user: null are excluded.
+employeeSchema.index(
+  { user: 1 },
+  {
+    name: "user_1",
+    unique: true,
+    partialFilterExpression: {
+      user: { $type: "objectId" },
+    },
+  }
+);
+
+// Virtual full name.
 employeeSchema.virtual("fullName").get(function () {
   return `${this.firstName} ${this.lastName}`.trim();
 });
