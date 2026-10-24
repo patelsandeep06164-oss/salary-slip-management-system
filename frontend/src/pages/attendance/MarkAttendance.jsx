@@ -9,40 +9,123 @@ import {
   FaUser,
   FaBuilding,
 } from "react-icons/fa";
-import employeeService from "../../services/employeeService";
-import "./MarkAttendance.css";
 
-function readAttendance() {
-  try {
-    const data = JSON.parse(
-      localStorage.getItem("attendance_records") || "[]"
-    );
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
-}
+import employeeService from "../../services/employeeService";
+import departmentService from "../../services/departmentService";
+import attendanceService from "../../services/attendantService";
+import "./MarkAttendance.css";
 
 function getToday() {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 }
 
 function getEmployeeId(employee) {
-  return employee?.id ?? employee?._id ?? "";
+  return String(employee?._id || employee?.id || "");
 }
 
-function getDepartmentName(department) {
-  if (typeof department === "string") return department;
+function getEmployeeName(employee) {
+  const fullName = `${employee?.firstName || ""} ${
+    employee?.lastName || ""
+  }`.trim();
 
+  return (
+    fullName ||
+    employee?.name ||
+    employee?.fullName ||
+    employee?.employeeName ||
+    "Unnamed Employee"
+  );
+}
+
+function getDepartmentId(department) {
   if (department && typeof department === "object") {
-    return department.name ?? department.departmentName ?? "";
+    department = department._id || department.id || "";
   }
 
-  return "";
+  return String(department || "").trim();
+}
+
+function getDepartmentName(department, departments = []) {
+  if (department && typeof department === "object") {
+    return (
+      department.name ||
+      department.departmentName ||
+      department.title ||
+      department.code ||
+      ""
+    );
+  }
+
+  const value = String(department || "").trim();
+
+  if (!value) return "";
+
+  // If the value is a department ID, resolve it using the department list.
+  const matchedDepartment = departments.find(
+    (item) =>
+      String(item?._id || item?.id || "") === value
+  );
+
+  if (matchedDepartment) {
+    return (
+      matchedDepartment.name ||
+      matchedDepartment.departmentName ||
+      matchedDepartment.code ||
+      ""
+    );
+  }
+
+  // Do not display an unpopulated MongoDB ID as a department name.
+  if (/^[a-f\d]{24}$/i.test(value)) {
+    return "";
+  }
+
+  // Supports APIs that return the department name directly.
+  return value;
+}
+
+function getApiError(error, fallback) {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    fallback
+  );
+}
+
+function extractEmployees(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.employees)) return response.employees;
+  if (Array.isArray(response?.data?.employees)) {
+    return response.data.employees;
+  }
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data?.employees)) {
+    return response.data.data.employees;
+  }
+
+  return [];
+}
+
+function extractDepartments(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.departments)) {
+    return response.departments;
+  }
+  if (Array.isArray(response?.data?.departments)) {
+    return response.data.departments;
+  }
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data?.departments)) {
+    return response.data.data.departments;
+  }
+
+  return [];
 }
 
 const createInitialForm = () => ({
@@ -54,11 +137,20 @@ const createInitialForm = () => ({
   notes: "",
 });
 
+const statusMap = {
+  Present: "present",
+  Late: "late",
+  Absent: "absent",
+  "Half Day": "half-day",
+  Leave: "on-leave",
+};
+
 export default function MarkAttendance() {
   const navigate = useNavigate();
   const timeoutRef = useRef(null);
 
   const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(createInitialForm);
@@ -68,31 +160,50 @@ export default function MarkAttendance() {
   useEffect(() => {
     let active = true;
 
-    async function loadEmployees() {
+    async function loadData() {
       setEmployeesLoading(true);
+      setError("");
 
-      try {
-        const result = await employeeService.getAll();
-        const list = Array.isArray(result)
-          ? result
-          : result?.employees ?? result?.data ?? [];
+      // Load both lists. The employee API may already populate department,
+      // while the department list lets us resolve an ID if it does not.
+      const [employeeResult, departmentResult] = await Promise.allSettled([
+        employeeService.getAll(),
+        departmentService.getAll(),
+      ]);
 
-        if (active) {
-          setEmployees(Array.isArray(list) ? list : []);
+      if (!active) return;
+
+      if (employeeResult.status === "fulfilled") {
+        const list = extractEmployees(employeeResult.value).filter(
+          (employee) => getEmployeeId(employee)
+        );
+
+        setEmployees(list);
+
+        if (list.length === 0) {
+          setError("No employees were returned by the employee API.");
         }
-      } catch (err) {
-        if (active) {
-          setError(err?.message || "Unable to load employee records.");
-          setEmployees([]);
-        }
-      } finally {
-        if (active) {
-          setEmployeesLoading(false);
-        }
+      } else {
+        setEmployees([]);
+        setError(
+          getApiError(
+            employeeResult.reason,
+            "Unable to load employee records. Please check your login and API."
+          )
+        );
       }
+
+      if (departmentResult.status === "fulfilled") {
+        setDepartments(extractDepartments(departmentResult.value));
+      } else {
+        // Employee data may still contain populated department details.
+        setDepartments([]);
+      }
+
+      setEmployeesLoading(false);
     }
 
-    loadEmployees();
+    loadData();
 
     return () => {
       active = false;
@@ -103,14 +214,21 @@ export default function MarkAttendance() {
     };
   }, []);
 
-  const selectedEmployee = useMemo(
-    () =>
+  const selectedEmployee = useMemo(() => {
+    return (
       employees.find(
         (employee) =>
-          String(getEmployeeId(employee)) === String(form.employeeId)
-      ),
-    [employees, form.employeeId]
-  );
+          getEmployeeId(employee) === String(form.employeeId)
+      ) || null
+    );
+  }, [employees, form.employeeId]);
+
+  const selectedDepartmentName = useMemo(() => {
+    return getDepartmentName(
+      selectedEmployee?.department,
+      departments
+    );
+  }, [selectedEmployee, departments]);
 
   const isTimeDisabled = ["Absent", "Leave"].includes(form.status);
 
@@ -128,23 +246,20 @@ export default function MarkAttendance() {
 
   function handleStatusChange(event) {
     const status = event.target.value;
+    const timeDisabled = ["Absent", "Leave"].includes(status);
 
     setForm((current) => ({
       ...current,
       status,
-      checkIn: ["Absent", "Leave"].includes(status)
-        ? ""
-        : current.checkIn || "09:00",
-      checkOut: ["Absent", "Leave"].includes(status)
-        ? ""
-        : current.checkOut || "18:00",
+      checkIn: timeDisabled ? "" : current.checkIn || "09:00",
+      checkOut: timeDisabled ? "" : current.checkOut || "18:00",
     }));
 
     setError("");
     setSuccess("");
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (saving) return;
@@ -164,8 +279,13 @@ export default function MarkAttendance() {
       return;
     }
 
+    if (!statusMap[form.status]) {
+      setError("Please select a valid attendance status.");
+      return;
+    }
+
     if (!isTimeDisabled && !form.checkIn) {
-      setError("Check-in time is required for this attendance status.");
+      setError("Check-in time is required.");
       return;
     }
 
@@ -179,53 +299,23 @@ export default function MarkAttendance() {
       return;
     }
 
+    const employeeId = getEmployeeId(selectedEmployee);
+
+    if (!employeeId) {
+      setError("The selected employee does not have a valid database ID.");
+      return;
+    }
+
+    setSaving(true);
+
     try {
-      const attendance = readAttendance();
-      const employeeId = String(getEmployeeId(selectedEmployee));
-
-      const duplicate = attendance.some(
-        (record) =>
-          String(record.employeeId) === employeeId &&
-          record.date === form.date
-      );
-
-      if (duplicate) {
-        setError(
-          "Attendance for this employee and date is already recorded."
-        );
-        return;
-      }
-
-      // Fixed: use window instead of globalThis.
-      const recordId =
-        typeof window !== "undefined" &&
-        typeof window.crypto?.randomUUID === "function"
-          ? window.crypto.randomUUID()
-          : `attendance_${Date.now()}_${Math.random()
-              .toString(36)
-              .slice(2, 8)}`;
-
-      const record = {
-        id: recordId,
-        employeeId,
-        employeeName: selectedEmployee.name || "Unknown Employee",
-        employeeCode:
-          selectedEmployee.employeeId || selectedEmployee.code || "",
-        department: getDepartmentName(selectedEmployee.department),
+      await attendanceService.markAttendance({
+        employee: employeeId,
         date: form.date,
-        checkIn: isTimeDisabled ? "" : form.checkIn,
-        checkOut: isTimeDisabled ? "" : form.checkOut,
-        status: form.status,
-        notes: form.notes.trim(),
-        createdAt: new Date().toISOString(),
-      };
+        status: statusMap[form.status],
+        remarks: form.notes.trim(),
+      });
 
-      localStorage.setItem(
-        "attendance_records",
-        JSON.stringify([...attendance, record])
-      );
-
-      setSaving(true);
       setSuccess("Attendance saved successfully. Redirecting...");
 
       timeoutRef.current = setTimeout(() => {
@@ -235,10 +325,15 @@ export default function MarkAttendance() {
           },
         });
       }, 700);
-    } catch {
+    } catch (err) {
       setError(
-        "Unable to save attendance. Please check browser storage and try again."
+        getApiError(
+          err,
+          "Unable to save attendance. Please try again."
+        )
       );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -301,8 +396,8 @@ export default function MarkAttendance() {
           <div className="attendance-message attendance-message-info">
             <strong>No employee records found.</strong>
             <p>
-              Add an employee before marking attendance. The dropdown uses
-              your saved employee records and does not contain demo entries.
+              Employees could not be loaded. Check the employee API
+              response and your login permissions.
             </p>
 
             <Link
@@ -322,6 +417,7 @@ export default function MarkAttendance() {
             <div className="attendance-form-grid">
               <div className="attendance-field">
                 <label htmlFor="employeeId">Employee *</label>
+
                 <select
                   id="employeeId"
                   name="employeeId"
@@ -332,17 +428,17 @@ export default function MarkAttendance() {
                 >
                   <option value="">Select employee</option>
 
-                  {employees.map((employee, index) => {
+                  {employees.map((employee) => {
                     const id = getEmployeeId(employee);
 
                     return (
-                      <option
-                        key={String(id || employee.email || index)}
-                        value={id}
-                        disabled={!id}
-                      >
-                        {employee.name || "Unnamed Employee"} (
-                        {employee.employeeId || employee.code || "No ID"})
+                      <option key={id} value={id}>
+                        {getEmployeeName(employee)} (
+                        {employee.employeeCode ||
+                          employee.employeeId ||
+                          employee.code ||
+                          "No ID"}
+                        )
                       </option>
                     );
                   })}
@@ -356,8 +452,14 @@ export default function MarkAttendance() {
 
                 <input
                   id="employeeDepartment"
-                  value={getDepartmentName(selectedEmployee?.department)}
-                  placeholder="Select an employee first"
+                  value={selectedDepartmentName}
+                  placeholder={
+                    !selectedEmployee
+                      ? "Select an employee first"
+                      : selectedDepartmentName
+                        ? ""
+                        : "Department not assigned or unavailable"
+                  }
                   readOnly
                 />
               </div>

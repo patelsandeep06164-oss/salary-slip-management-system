@@ -1,3 +1,4 @@
+
 const fs = require("fs");
 
 const SalarySlip = require("../models/SalarySlip");
@@ -12,6 +13,16 @@ const createError = (message, statusCode = 400) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+};
+
+const logSalarySlipError = (step, error, extra = {}) => {
+  console.error(`[SalarySlip] ${step} failed:`, {
+    message: error?.message,
+    name: error?.name,
+    code: error?.code,
+    stack: error?.stack,
+    ...extra,
+  });
 };
 
 const validatePeriod = (month, year) => {
@@ -39,11 +50,36 @@ const makeSlipNumber = (employee, month, year) => {
 
 // Generate a salary slip only for processed or paid payroll.
 const generateSalarySlip = async (payrollId, generatedBy) => {
-  const payroll = await Payroll.findById(payrollId);
+  let payroll;
+
+  console.log("[SalarySlip] Step 1: Finding payroll", {
+    payrollId: String(payrollId),
+  });
+
+  try {
+    if (!payrollId) {
+      throw createError("A valid Payroll ID is required.");
+    }
+
+    payroll = await Payroll.findById(payrollId);
+  } catch (error) {
+    logSalarySlipError("Payroll lookup", error, {
+      payrollId: String(payrollId),
+    });
+    throw error;
+  }
 
   if (!payroll) {
     throw createError("Payroll record not found.", 404);
   }
+
+  console.log("[SalarySlip] Step 2: Payroll found", {
+    payrollId: String(payroll._id),
+    status: payroll.status,
+    employeeId: String(payroll.employee || ""),
+    month: payroll.month,
+    year: payroll.year,
+  });
 
   if (!["processed", "paid"].includes(payroll.status)) {
     throw createError(
@@ -51,25 +87,72 @@ const generateSalarySlip = async (payrollId, generatedBy) => {
     );
   }
 
-  let slip = await SalarySlip.findOne({
-    employee: payroll.employee,
-    month: payroll.month,
-    year: payroll.year,
-  }).select("+pdfPath");
+  let slip;
 
-  // Reuse an existing PDF rather than creating a duplicate slip.
+  try {
+    console.log("[SalarySlip] Step 3: Looking for existing slip");
+
+    slip = await SalarySlip.findOne({
+      employee: payroll.employee,
+      month: payroll.month,
+      year: payroll.year,
+    }).select("+pdfPath");
+  } catch (error) {
+    logSalarySlipError("Existing salary slip lookup", error, {
+      payrollId: String(payroll._id),
+    });
+    throw error;
+  }
+
   if (slip?.pdfPath && fs.existsSync(slip.pdfPath)) {
+    console.log("[SalarySlip] Existing PDF found", {
+      salarySlipId: String(slip._id),
+    });
+
     return slip;
   }
 
- const employee = await Employee.findById(payroll.employee)
-  .select("+pan +panNumber +bankDetails");
+  let employee;
+
+  try {
+    console.log("[SalarySlip] Step 4: Finding employee");
+
+    employee = await Employee.findById(payroll.employee).select(
+      "+pan +panNumber +bankDetails"
+    );
+  } catch (error) {
+    logSalarySlipError("Employee lookup", error, {
+      payrollId: String(payroll._id),
+      employeeId: String(payroll.employee || ""),
+    });
+    throw error;
+  }
 
   if (!employee) {
     throw createError("Employee record not found.", 404);
   }
 
-  const company = await CompanySettings.findOne();
+  console.log("[SalarySlip] Step 5: Employee found", {
+    employeeId: String(employee._id),
+    hasEmail: Boolean(employee.email),
+  });
+
+  let company;
+
+  try {
+    console.log("[SalarySlip] Step 6: Loading company settings");
+
+    company = await CompanySettings.findOne();
+
+    console.log("[SalarySlip] Company settings loaded", {
+      found: Boolean(company),
+    });
+  } catch (error) {
+    logSalarySlipError("Company settings lookup", error, {
+      payrollId: String(payroll._id),
+    });
+    throw error;
+  }
 
   const slipNumber = makeSlipNumber(
     employee,
@@ -79,6 +162,10 @@ const generateSalarySlip = async (payrollId, generatedBy) => {
 
   if (!slip) {
     try {
+      console.log("[SalarySlip] Step 7: Creating salary slip", {
+        slipNumber,
+      });
+
       slip = await SalarySlip.create({
         employee: employee._id,
         payroll: payroll._id,
@@ -90,34 +177,84 @@ const generateSalarySlip = async (payrollId, generatedBy) => {
         generatedBy,
       });
     } catch (error) {
-      if (error.code === 11000) {
+      logSalarySlipError("Salary slip creation", error, {
+        payrollId: String(payroll._id),
+        slipNumber,
+      });
+
+      if (error.code !== 11000) {
+        throw error;
+      }
+
+      // A concurrent request may have created the same slip.
+      try {
         slip = await SalarySlip.findOne({
           employee: employee._id,
           month: payroll.month,
           year: payroll.year,
         }).select("+pdfPath");
+      } catch (lookupError) {
+        logSalarySlipError(
+          "Duplicate salary slip lookup",
+          lookupError,
+          { slipNumber }
+        );
+        throw lookupError;
+      }
 
-        if (!slip) {
-          throw error;
-        }
-
-        // Another request may already have generated the PDF.
-        if (slip.pdfPath && fs.existsSync(slip.pdfPath)) {
-          return slip;
-        }
-      } else {
+      if (!slip) {
         throw error;
+      }
+
+      if (slip.pdfPath && fs.existsSync(slip.pdfPath)) {
+        console.log("[SalarySlip] Reusing concurrently generated PDF", {
+          salarySlipId: String(slip._id),
+        });
+
+        return slip;
       }
     }
   }
 
+  if (!slip) {
+    throw createError(
+      "Unable to create or retrieve the salary slip.",
+      500
+    );
+  }
+
   try {
+    console.log("[SalarySlip] Step 8: Generating PDF", {
+      salarySlipId: String(slip._id),
+      slipNumber: slip.slipNumber,
+    });
+
     const pdf = await generateSalarySlipPdf({
       payroll,
       employee,
       company,
-      slipNumber: slip.slipNumber,
+      slipNumber: slip.slipNumber || slipNumber,
     });
+
+    if (!pdf?.pdfPath) {
+      throw createError(
+        "PDF service did not return a file path.",
+        500
+      );
+    }
+
+    console.log("[SalarySlip] Step 9: PDF generated", {
+      salarySlipId: String(slip._id),
+      pdfPath: pdf.pdfPath,
+      fileExists: fs.existsSync(pdf.pdfPath),
+    });
+
+    if (!fs.existsSync(pdf.pdfPath)) {
+      throw createError(
+        "Generated PDF file does not exist on the server.",
+        500
+      );
+    }
 
     slip.payroll = payroll._id;
     slip.pdfPath = pdf.pdfPath;
@@ -128,20 +265,47 @@ const generateSalarySlip = async (payrollId, generatedBy) => {
       slip.generatedBy = generatedBy;
     }
 
+    console.log("[SalarySlip] Step 10: Saving generated slip", {
+      salarySlipId: String(slip._id),
+    });
+
     await slip.save();
+
+    console.log("[SalarySlip] Step 11: Salary slip saved", {
+      salarySlipId: String(slip._id),
+    });
 
     return slip;
   } catch (error) {
-    slip.status = "failed";
-    await slip.save();
+    logSalarySlipError("PDF generation or salary slip save", error, {
+      payrollId: String(payroll._id),
+      salarySlipId: String(slip._id),
+    });
+
+    // Preserve the original error if the failure-status save also fails.
+    try {
+      slip.status = "failed";
+      await slip.save();
+    } catch (saveError) {
+      logSalarySlipError("Saving failed status", saveError, {
+        salarySlipId: String(slip._id),
+      });
+    }
+
     throw error;
   }
 };
 
 // Email an existing salary slip without sending duplicate emails.
 const emailSalarySlip = async (salarySlipId) => {
-  const slip = await SalarySlip.findById(salarySlipId)
-    .select("+pdfPath");
+  let slip;
+
+  try {
+    slip = await SalarySlip.findById(salarySlipId).select("+pdfPath");
+  } catch (error) {
+    logSalarySlipError("Email slip lookup", error, { salarySlipId });
+    throw error;
+  }
 
   if (!slip) {
     throw createError("Salary slip not found.", 404);
@@ -161,8 +325,18 @@ const emailSalarySlip = async (salarySlipId) => {
     };
   }
 
-  const employee = await Employee.findById(slip.employee);
-  const company = await CompanySettings.findOne();
+  let employee;
+  let company;
+
+  try {
+    employee = await Employee.findById(slip.employee);
+    company = await CompanySettings.findOne();
+  } catch (error) {
+    logSalarySlipError("Email employee or company lookup", error, {
+      salarySlipId: String(slip._id),
+    });
+    throw error;
+  }
 
   if (!employee) {
     throw createError("Employee record not found.", 404);
@@ -172,15 +346,22 @@ const emailSalarySlip = async (salarySlipId) => {
     slip.emailStatus = "failed";
     slip.lastEmailError = "Employee email address is missing.";
 
-    await slip.save();
+    try {
+      await slip.save();
+    } catch (error) {
+      logSalarySlipError("Saving missing-email status", error, {
+        salarySlipId: String(slip._id),
+      });
+    }
 
-    throw createError(
-      "Employee email address is missing.",
-      400
-    );
+    throw createError("Employee email address is missing.", 400);
   }
 
   try {
+    console.log("[SalarySlip] Sending email", {
+      salarySlipId: String(slip._id),
+    });
+
     await sendSalarySlipEmail({
       employee,
       salarySlip: slip,
@@ -196,17 +377,31 @@ const emailSalarySlip = async (salarySlipId) => {
 
     await slip.save();
 
+    console.log("[SalarySlip] Email sent successfully", {
+      salarySlipId: String(slip._id),
+    });
+
     return {
       message: "Salary slip emailed successfully.",
       salarySlip: slip,
     };
   } catch (error) {
+    logSalarySlipError("Sending salary slip email", error, {
+      salarySlipId: String(slip._id),
+    });
+
     slip.emailStatus = "failed";
     slip.status = "failed";
     slip.emailAttempts = (slip.emailAttempts || 0) + 1;
     slip.lastEmailError = error.message;
 
-    await slip.save();
+    try {
+      await slip.save();
+    } catch (saveError) {
+      logSalarySlipError("Saving email failure status", saveError, {
+        salarySlipId: String(slip._id),
+      });
+    }
 
     throw error;
   }
@@ -228,7 +423,7 @@ const generateAndEmailSalarySlip = async (
   return emailSalarySlip(slip._id);
 };
 
-// Retrieve salary slips using month/year/status filters and pagination.
+// Retrieve salary slips using filters and pagination.
 const getSalarySlips = async ({
   employee,
   month,
@@ -398,6 +593,10 @@ const generateAndEmailMonthlySalarySlips = async (
         status: "generated-and-emailed",
       });
     } catch (error) {
+      logSalarySlipError("Monthly slip processing", error, {
+        payrollId: String(payroll._id),
+      });
+
       results.failed++;
 
       results.details.push({

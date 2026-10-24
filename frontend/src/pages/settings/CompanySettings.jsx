@@ -1,12 +1,8 @@
-
 import React, { useEffect, useState } from "react";
 import {
   FaBuilding,
   FaSave,
   FaUndo,
-  FaGlobe,
-  FaEnvelope,
-  FaPhone,
   FaMapMarkerAlt,
   FaCalendarAlt,
   FaImage,
@@ -131,9 +127,7 @@ function CompanySettings() {
       }
     }
 
-    if (
-      form.logoUrl.trim()
-    ) {
+    if (form.logoUrl.trim()) {
       try {
         const url = new URL(form.logoUrl.trim());
 
@@ -193,7 +187,7 @@ function CompanySettings() {
       setErrors({});
       setLogoError(false);
 
-      // Notify other components in this tab that settings have changed.
+      // Notify other components that company settings have changed.
       window.dispatchEvent(
         new CustomEvent("companySettingsUpdated", {
           detail: updatedSettings,

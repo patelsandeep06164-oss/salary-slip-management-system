@@ -74,7 +74,7 @@ function SalarySlipDetails() {
         response?.data ||
         response;
 
-      if (!data || typeof data !== "object" || !data._id && !data.id) {
+      if (!data || typeof data !== "object" || (!data._id && !data.id)) {
         throw new Error("Salary slip record nahi mila.");
       }
 

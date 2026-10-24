@@ -16,6 +16,8 @@ import {
 import AttendanceChart from "../../components/dashboard/AttendanceChart";
 import PayrollChart from "../../components/dashboard/PayrollChart";
 import employeeService from "../../services/employeeService";
+import leaveService from "../../services/leaveService";
+import payrollService from "../../services/payrollService";
 
 const styles = `
 .admin-dashboard,
@@ -525,6 +527,49 @@ function normalizeEmployees(result) {
   return [];
 }
 
+function extractRecords(response, keys = []) {
+  if (Array.isArray(response)) return response;
+
+  for (const key of keys) {
+    if (Array.isArray(response?.[key])) return response[key];
+    if (Array.isArray(response?.data?.[key])) {
+      return response.data[key];
+    }
+  }
+
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.records)) return response.records;
+
+  return [];
+}
+
+function readLocalRecords(key) {
+  try {
+    const data = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeStatus(value) {
+  return String(value || "").trim().toLowerCase().replace(/[-_]/g, " ");
+}
+
+function getPayrollMonth(record) {
+  const month = record.month ?? record.payrollMonth;
+  const year = record.year ?? record.payrollYear;
+
+  if (year && Number(month) >= 1 && Number(month) <= 12) {
+    return `${year}-${String(month).padStart(2, "0")}`;
+  }
+
+  const value = String(month || record.generatedOn || record.createdAt || "");
+  const match = value.match(/^(\d{4})-(\d{2})/);
+
+  return match ? `${match[1]}-${match[2]}` : "";
+}
+
 function money(value) {
   const amount = Number(value);
 
@@ -540,26 +585,56 @@ function Dashboard() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [leaveRecords, setLeaveRecords] = useState([]);
+  const [payrollRecords, setPayrollRecords] = useState([]);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError("");
+    setDepartments(readDepartments());
 
-    try {
-      const result = await employeeService.getAll();
-      setEmployees(normalizeEmployees(result));
-      setDepartments(readDepartments());
-    } catch (loadError) {
-      setError(
-        loadError?.response?.data?.message ||
-          loadError?.message ||
-          "Unable to load dashboard data. Please try again."
-      );
+    // AttendanceList currently stores attendance records in localStorage.
+    setAttendanceRecords(readLocalRecords("attendance_records"));
+
+    // Load each API independently so one failing endpoint does not hide
+    // the other dashboard data.
+    const [employeeResult, leaveResult, payrollResult] = await Promise.allSettled([
+      employeeService.getAll(),
+      leaveService.getAll(),
+      payrollService.getAll(),
+    ]);
+
+    if (employeeResult.status === "fulfilled") {
+      setEmployees(normalizeEmployees(employeeResult.value));
+    } else {
       setEmployees([]);
-      setDepartments(readDepartments());
-    } finally {
-      setLoading(false);
+      setError(
+        employeeResult.reason?.response?.data?.message ||
+          employeeResult.reason?.message ||
+          "Unable to load employee data. Please try again."
+      );
     }
+
+    if (leaveResult.status === "fulfilled") {
+      setLeaveRecords(
+        extractRecords(leaveResult.value, ["leaves", "leaveRequests", "requests"])
+      );
+    } else {
+      setLeaveRecords([]);
+      console.error("Unable to load leave records:", leaveResult.reason);
+    }
+
+    if (payrollResult.status === "fulfilled") {
+      setPayrollRecords(
+        extractRecords(payrollResult.value, ["payrolls", "payrollRecords", "records"])
+      );
+    } else {
+      setPayrollRecords([]);
+      console.error("Unable to load payroll records:", payrollResult.reason);
+    }
+
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -586,6 +661,70 @@ function Dashboard() {
       }, 0),
     [employees]
   );
+
+  const pendingLeaves = useMemo(
+    () =>
+      leaveRecords.filter(
+        (leave) => normalizeStatus(leave.status || "Pending") === "pending"
+      ).length,
+    [leaveRecords]
+  );
+
+  const attendanceChartData = useMemo(() => {
+    const today = new Date();
+    const rows = [];
+
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - offset);
+      const dateKey = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+      ].join("-");
+
+      const dayRecords = attendanceRecords.filter(
+        (record) => String(record.date || "").slice(0, 10) === dateKey
+      );
+      const statuses = dayRecords.map((record) => normalizeStatus(record.status));
+
+      rows.push({
+        day: date.toLocaleDateString("en-IN", { weekday: "short" }),
+        present: statuses.filter((status) => ["present", "half day", "halfday"].includes(status)).length,
+        late: statuses.filter((status) => status === "late").length,
+        absent: statuses.filter((status) => status === "absent").length,
+      });
+    }
+
+    return rows;
+  }, [attendanceRecords]);
+
+  const payrollChartData = useMemo(() => {
+    const totalsByMonth = new Map();
+
+    payrollRecords.forEach((record) => {
+      const monthKey = getPayrollMonth(record);
+      if (!monthKey) return;
+
+      const amount = Number(
+        record.netSalary ?? record.grossSalary ?? record.totalSalary ?? 0
+      );
+      if (!Number.isFinite(amount)) return;
+
+      totalsByMonth.set(monthKey, (totalsByMonth.get(monthKey) || 0) + amount);
+    });
+
+    return Array.from(totalsByMonth.entries())
+      .sort(([monthA], [monthB]) => monthA.localeCompare(monthB))
+      .slice(-6)
+      .map(([monthKey, payroll]) => ({
+        month: new Date(`${monthKey}-01T00:00:00`).toLocaleDateString("en-IN", {
+          month: "short",
+          year: "2-digit",
+        }),
+        payroll,
+      }));
+  }, [payrollRecords]);
 
   const stats = [
     {
@@ -615,8 +754,8 @@ function Dashboard() {
     },
     {
       label: "Pending Leaves",
-      value: "—",
-      note: "Leave request data not connected",
+      value: loading ? "—" : pendingLeaves,
+      note: "Pending leave requests",
       icon: <FaCalendarTimes />,
       color: "#d97706",
       bg: "#fffbeb",
@@ -706,19 +845,19 @@ function Dashboard() {
       <section className="dash-charts" aria-label="Reports and charts">
         <div className="dash-chart-slot">
           <AttendanceChart
-            data={[]}
+            data={attendanceChartData}
             loading={loading}
             title="Attendance Overview"
-            subtitle="Attendance statistics will appear when attendance data is connected."
+            subtitle="Daily attendance from saved attendance records (last 7 days)."
           />
         </div>
 
         <div className="dash-chart-slot">
           <PayrollChart
-            data={[]}
+            data={payrollChartData}
             loading={loading}
             title="Payroll Overview"
-            subtitle="Monthly payroll history will appear when payroll records are connected."
+            subtitle="Monthly payroll totals from saved payroll records."
           />
         </div>
       </section>

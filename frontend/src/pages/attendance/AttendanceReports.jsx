@@ -30,15 +30,7 @@ function getMonthStart() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-function formatDate(value) {
-  if (!value) return "—";
 
-  return new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export default function AttendanceReports() {
   const [records] = useState(readAttendance);

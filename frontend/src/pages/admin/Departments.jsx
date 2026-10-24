@@ -1,24 +1,30 @@
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FaPlus,
   FaSearch,
   FaEdit,
-  FaTrash,
   FaBuilding,
   FaTimes,
   FaSave,
   FaUsers,
   FaExclamationTriangle,
   FaSyncAlt,
+  FaToggleOn,
+  FaToggleOff,
 } from "react-icons/fa";
 
+import departmentService from "../../services/departmentService";
 import employeeService from "../../services/employeeService";
-
-const DEPARTMENT_STORAGE_KEY = "department_records";
 
 const blankForm = {
   name: "",
+  code: "",
   description: "",
 };
 
@@ -29,10 +35,14 @@ const styles = `
   color: var(--text-primary, #1e293b);
   font-family: Arial, sans-serif;
 }
-.dept-page *, .dept-page *::before, .dept-page *::after {
+.dept-page *,
+.dept-page *::before,
+.dept-page *::after {
   box-sizing: border-box;
 }
-.dept-page button, .dept-page input, .dept-page textarea {
+.dept-page button,
+.dept-page input,
+.dept-page textarea {
   font: inherit;
 }
 .dept-header {
@@ -47,7 +57,6 @@ const styles = `
   margin: 0 0 8px;
   font-size: clamp(23px, 3vw, 30px);
   font-weight: 800;
-  letter-spacing: -0.7px;
 }
 .dept-header p {
   margin: 0;
@@ -65,21 +74,15 @@ const styles = `
   border: 0;
   border-radius: 11px;
   background: linear-gradient(135deg, #06b6d4, #2563eb);
-  color: white;
+  color: #fff;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 5px 14px #0891b233;
-  transition: transform .2s ease, box-shadow .2s ease;
-}
-.dept-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px #0891b244;
 }
 .dept-primary:disabled {
   opacity: .6;
   cursor: not-allowed;
-  transform: none;
 }
 .dept-stats {
   display: grid;
@@ -88,10 +91,10 @@ const styles = `
   margin-bottom: 22px;
 }
 .dept-stat {
-  min-width: 0;
   display: flex;
   align-items: center;
   gap: 15px;
+  min-width: 0;
   padding: 21px;
   border: 1px solid var(--border-color, #e5edf5);
   border-radius: 16px;
@@ -109,20 +112,14 @@ const styles = `
   color: #0891b2;
   font-size: 20px;
 }
-.dept-stat:nth-child(2) .dept-stat-icon {
-  background: #e8efff;
-  color: #4f46e5;
-}
 .dept-stat small {
   display: block;
   color: var(--text-secondary, #64748b);
   font-size: 12px;
-  line-height: 1.5;
 }
 .dept-stat strong {
   display: block;
-  margin-top: 5px;
-  color: var(--text-primary, #1e293b);
+  margin-top: 6px;
   font-size: 25px;
   font-weight: 800;
 }
@@ -158,17 +155,13 @@ const styles = `
   align-items: center;
   gap: 10px;
   flex: 1;
-  min-width: 200px;
+  min-width: 180px;
   max-width: 400px;
   padding: 0 13px;
   border: 1px solid var(--border-color, #dbe5f1);
   border-radius: 11px;
   color: #0891b2;
   background: var(--surface, #fff);
-}
-.dept-search:focus-within {
-  border-color: #06b6d4;
-  box-shadow: 0 0 0 3px #06b6d41c;
 }
 .dept-search input {
   width: 100%;
@@ -183,7 +176,6 @@ const styles = `
 .dept-count {
   color: var(--text-secondary, #64748b);
   font-size: 12px;
-  white-space: nowrap;
 }
 .dept-table-wrap {
   width: 100%;
@@ -193,7 +185,7 @@ const styles = `
 }
 .dept-table {
   width: 100%;
-  min-width: 610px;
+  min-width: 680px;
   border-collapse: collapse;
   text-align: left;
 }
@@ -204,8 +196,7 @@ const styles = `
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .6px;
-  white-space: nowrap;
+  letter-spacing: .5px;
 }
 .dept-table td {
   padding: 14px 13px;
@@ -218,9 +209,6 @@ const styles = `
 }
 .dept-table tbody tr:last-child td {
   border-bottom: 0;
-}
-.dept-table tbody tr:hover {
-  background: var(--table-hover, #f8fcff);
 }
 .dept-name {
   display: flex;
@@ -238,15 +226,32 @@ const styles = `
   border-radius: 11px;
   background: #e0f7fc;
   color: #0891b2;
-  font-size: 15px;
 }
-.dept-description {
-  max-width: 250px;
-  color: var(--text-secondary, #64748b) !important;
+.dept-badge {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: #e0f7fc;
+  color: #087b99;
+  font-weight: 800;
+}
+.dept-status {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 750;
+}
+.dept-status.active {
+  background: #dcfce7;
+  color: #166534;
+}
+.dept-status.inactive {
+  background: #fee2e2;
+  color: #991b1b;
 }
 .dept-employee-count {
   display: inline-flex;
-  align-items: center;
   justify-content: center;
   min-width: 33px;
   padding: 5px 10px;
@@ -261,8 +266,8 @@ const styles = `
   gap: 7px;
 }
 .dept-icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 35px;
+  height: 35px;
   display: grid;
   place-items: center;
   border: 1px solid var(--border-color, #e2e8f0);
@@ -270,16 +275,12 @@ const styles = `
   background: var(--surface, #fff);
   color: #0891b2;
   cursor: pointer;
-  transition: background .2s ease;
 }
 .dept-icon-btn:hover {
   background: #e0f7fc;
 }
-.dept-icon-btn.delete {
-  color: #dc2626;
-}
-.dept-icon-btn.delete:hover {
-  background: #fef2f2;
+.dept-icon-btn.toggle {
+  color: #15803d;
 }
 .dept-icon-btn:disabled {
   opacity: .45;
@@ -354,7 +355,6 @@ const styles = `
   border: 0;
   border-radius: 10px;
   background: var(--table-header, #f1f5f9);
-  color: var(--text-secondary, #475569);
   cursor: pointer;
 }
 .dept-field {
@@ -364,7 +364,6 @@ const styles = `
   margin-bottom: 17px;
 }
 .dept-field label {
-  color: var(--text-primary, #334155);
   font-size: 12px;
   font-weight: 750;
 }
@@ -392,6 +391,7 @@ const styles = `
   border-radius: 10px;
   font-size: 12px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 .dept-error {
   background: #fef2f2;
@@ -426,16 +426,10 @@ const styles = `
   cursor: not-allowed;
 }
 .dept-loading {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 20px 0;
+  padding: 24px 12px;
+  text-align: center;
   color: var(--text-secondary, #64748b);
   font-size: 13px;
-}
-.dept-page button:focus-visible {
-  outline: 3px solid #06b6d466;
-  outline-offset: 2px;
 }
 @media (max-width: 650px) {
   .dept-header {
@@ -465,9 +459,6 @@ const styles = `
     max-width: none;
     min-width: 0;
   }
-  .dept-count {
-    white-space: normal;
-  }
   .dept-modal {
     padding: 19px;
   }
@@ -478,114 +469,104 @@ const styles = `
     width: 100%;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .dept-page *,
-  .dept-page *::before,
-  .dept-page *::after {
-    transition: none !important;
-  }
-}
 `;
 
-function readDepartments() {
-  try {
-    const saved = localStorage.getItem(DEPARTMENT_STORAGE_KEY);
-    const parsed = saved ? JSON.parse(saved) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveDepartments(departments) {
-  localStorage.setItem(
-    DEPARTMENT_STORAGE_KEY,
-    JSON.stringify(departments)
+function getApiMessage(error, fallback) {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    fallback
   );
 }
 
-function getDepartmentName(value) {
-  if (value && typeof value === "object") {
-    return String(value.name || value.departmentName || "").trim();
-  }
-  return String(value || "").trim();
+function getDepartmentId(department) {
+  return String(department?._id || department?.id || "");
 }
 
-function getEmployeeDepartment(employee) {
-  return getDepartmentName(
-    employee?.department ?? employee?.departmentName
-  );
-}
+function getEmployeeDepartmentId(employee) {
+  const department = employee?.department;
 
-/* FIXED: globalThis has been replaced with window. */
-function createDepartmentId() {
-  if (
-    typeof window !== "undefined" &&
-    typeof window.crypto?.randomUUID === "function"
-  ) {
-    return window.crypto.randomUUID();
+  if (department && typeof department === "object") {
+    return String(department._id || department.id || "");
   }
 
-  return `dept_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return String(department || "");
+}
+
+function getEmployeeRows(result) {
+  if (Array.isArray(result)) return result;
+  if (Array.isArray(result?.employees)) return result.employees;
+  if (Array.isArray(result?.data?.employees)) {
+    return result.data.employees;
+  }
+  return [];
 }
 
 export default function Departments() {
-  const [departments, setDepartments] = useState(readDepartments);
+  const [departments, setDepartments] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(blankForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [loadingEmployees, setLoadingEmployees] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [storageError, setStorageError] = useState("");
 
-  const loadEmployees = useCallback(async () => {
-    setLoadingEmployees(true);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
     try {
-      const result = await employeeService.getAll();
-      setEmployees(Array.isArray(result) ? result : []);
-      setStorageError("");
+      const [departmentResult, employeeResult] = await Promise.all([
+        departmentService.getAll(),
+        employeeService.getAll(),
+      ]);
+
+      const departmentRows = Array.isArray(departmentResult)
+        ? departmentResult
+        : departmentResult?.departments ||
+          departmentResult?.data?.departments ||
+          [];
+
+      setDepartments(
+        departmentRows.map((department) => ({
+          ...department,
+          id: getDepartmentId(department),
+        }))
+      );
+
+      setEmployees(getEmployeeRows(employeeResult));
     } catch (loadError) {
-      setEmployees([]);
-      setStorageError(
-        loadError?.message || "Unable to load employee records."
+      setError(
+        getApiMessage(
+          loadError,
+          "Unable to load departments. Check the backend connection."
+        )
       );
     } finally {
-      setLoadingEmployees(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadEmployees();
-  }, [loadEmployees]);
-
-  useEffect(() => {
-    if (!modalOpen) return undefined;
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape" && !saving) {
-        closeModal();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modalOpen, saving]);
+    loadData();
+  }, [loadData]);
 
   const employeeCounts = useMemo(() => {
     const counts = new Map();
 
     employees.forEach((employee) => {
-      const departmentName = getEmployeeDepartment(employee);
-      if (!departmentName) return;
+      const departmentId = getEmployeeDepartmentId(employee);
+      if (!departmentId) return;
 
-      const key = departmentName.toLowerCase();
-      counts.set(key, (counts.get(key) || 0) + 1);
+      counts.set(
+        departmentId,
+        (counts.get(departmentId) || 0) + 1
+      );
     });
 
     return counts;
@@ -593,8 +574,15 @@ export default function Departments() {
 
   const assignedEmployees = useMemo(
     () =>
-      employees.filter((employee) => getEmployeeDepartment(employee)).length,
+      employees.filter(
+        (employee) => getEmployeeDepartmentId(employee)
+      ).length,
     [employees]
+  );
+
+  const activeDepartments = useMemo(
+    () => departments.filter((department) => department.isActive !== false),
+    [departments]
   );
 
   const filteredDepartments = useMemo(() => {
@@ -602,14 +590,24 @@ export default function Departments() {
 
     return departments
       .filter((department) =>
-        `${department.name || ""} ${department.description || ""}`
+        showInactive
+          ? department.isActive === false
+          : department.isActive !== false
+      )
+      .filter((department) =>
+        [
+          department.name,
+          department.code,
+          department.description,
+        ]
+          .join(" ")
           .toLowerCase()
           .includes(query)
       )
       .sort((a, b) =>
         String(a.name || "").localeCompare(String(b.name || ""))
       );
-  }, [departments, search]);
+  }, [departments, search, showInactive]);
 
   function openAdd() {
     setEditingId(null);
@@ -620,9 +618,10 @@ export default function Departments() {
   }
 
   function openEdit(department) {
-    setEditingId(department.id);
+    setEditingId(getDepartmentId(department));
     setForm({
       name: department.name || "",
+      code: department.code || "",
       description: department.description || "",
     });
     setError("");
@@ -635,7 +634,6 @@ export default function Departments() {
     setModalOpen(false);
     setEditingId(null);
     setForm(blankForm);
-    setError("");
   }
 
   async function saveDepartment(event) {
@@ -644,114 +642,101 @@ export default function Departments() {
     setSuccess("");
 
     const name = form.name.trim();
+    const code = form.code.trim().toUpperCase();
     const description = form.description.trim();
 
-    if (!name) {
-      setError("Department name is required.");
+    if (!name || !code) {
+      setError("Department name and code are required.");
       return;
     }
 
-    if (name.length > 80) {
-      setError("Department name cannot exceed 80 characters.");
-      return;
-    }
-
-    if (description.length > 500) {
-      setError("Description cannot exceed 500 characters.");
+    if (name.length > 100 || code.length > 30) {
+      setError("Department name or code exceeds the allowed length.");
       return;
     }
 
     const duplicate = departments.some(
       (department) =>
-        String(department.id) !== String(editingId) &&
-        String(department.name || "").trim().toLowerCase() ===
-          name.toLowerCase()
+        getDepartmentId(department) !== String(editingId || "") &&
+        (
+          String(department.name || "").trim().toLowerCase() ===
+            name.toLowerCase() ||
+          String(department.code || "").trim().toUpperCase() === code
+        )
     );
 
     if (duplicate) {
-      setError("A department with this name already exists.");
+      setError("A department with this name or code already exists.");
       return;
     }
 
     setSaving(true);
 
     try {
-      const timestamp = new Date().toISOString();
-      let updated;
+      const payload = { name, code, description };
 
-      if (editingId !== null) {
-        updated = departments.map((department) =>
-          String(department.id) === String(editingId)
-            ? {
-                ...department,
-                name,
-                description,
-                updatedAt: timestamp,
-              }
-            : department
-        );
+      if (editingId) {
+        await departmentService.update(editingId, payload);
+        setSuccess("Department updated successfully.");
       } else {
-        updated = [
-          ...departments,
-          {
-            id: createDepartmentId(),
-            name,
-            description,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          },
-        ];
+        await departmentService.create(payload);
+        setSuccess("Department created successfully.");
       }
 
-      saveDepartments(updated);
-      setDepartments(updated);
-      setSuccess(
-        editingId !== null
-          ? "Department updated successfully."
-          : "Department added successfully."
-      );
       setModalOpen(false);
       setEditingId(null);
       setForm(blankForm);
-    } catch {
+      await loadData();
+    } catch (saveError) {
       setError(
-        "Unable to save the department. Check your browser storage and try again."
+        getApiMessage(
+          saveError,
+          "Unable to save department. Please check the backend."
+        )
       );
     } finally {
       setSaving(false);
     }
   }
 
-  function deleteDepartment(department) {
-    const departmentName = String(department.name || "").trim();
-
-    const assignedCount =
-      employeeCounts.get(departmentName.toLowerCase()) || 0;
-
-    if (assignedCount > 0) {
-      window.alert(
-        `${assignedCount} employee(s) are assigned to "${departmentName}". Reassign them before deleting this department.`
-      );
+  async function toggleDepartment(department) {
+    const id = getDepartmentId(department);
+    if (!id) {
+      setError("Department ID is missing. Please refresh the page.");
       return;
     }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete the "${departmentName}" department?`
-    );
+    const isActive = department.isActive !== false;
+    const action = isActive ? "deactivate" : "reactivate";
 
-    if (!confirmed) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to ${action} "${department.name}"?`
+      )
+    ) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
 
     try {
-      const updated = departments.filter(
-        (item) => String(item.id) !== String(department.id)
-      );
+      if (isActive) {
+        await departmentService.deactivate(id);
+        setSuccess(`"${department.name}" deactivated successfully.`);
+      } else {
+        await departmentService.reactivate(id);
+        setSuccess(`"${department.name}" reactivated successfully.`);
+      }
 
-      saveDepartments(updated);
-      setDepartments(updated);
-      setSuccess(`"${departmentName}" department deleted successfully.`);
-      setStorageError("");
-    } catch {
-      setStorageError("Unable to delete the department. Please try again.");
+      await loadData();
+    } catch (toggleError) {
+      setError(
+        getApiMessage(
+          toggleError,
+          "Unable to change department status."
+        )
+      );
     }
   }
 
@@ -763,7 +748,7 @@ export default function Departments() {
         <div>
           <h1>Departments</h1>
           <p>
-            Create and manage your company departments and employee assignments.
+            Manage company departments and employee assignments.
           </p>
         </div>
 
@@ -771,32 +756,29 @@ export default function Departments() {
           type="button"
           className="dept-primary"
           onClick={openAdd}
+          disabled={loading}
         >
           <FaPlus /> Add Department
         </button>
       </header>
 
-      {storageError && (
+      {error && (
         <div className="dept-error" role="alert">
           <FaExclamationTriangle style={{ marginRight: 7 }} />
-          {storageError}
+          {error}
           <button
             type="button"
-            onClick={() => {
-              setStorageError("");
-              loadEmployees();
-            }}
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
             style={{
-              marginLeft: 10,
+              float: "right",
               border: 0,
               background: "transparent",
               color: "inherit",
-              textDecoration: "underline",
               cursor: "pointer",
-              fontWeight: 700,
             }}
           >
-            <FaSyncAlt /> Retry
+            <FaTimes />
           </button>
         </div>
       )}
@@ -807,13 +789,13 @@ export default function Departments() {
           <button
             type="button"
             onClick={() => setSuccess("")}
-            aria-label="Dismiss success message"
+            aria-label="Dismiss success"
             style={{
               float: "right",
               border: 0,
               background: "transparent",
-              cursor: "pointer",
               color: "inherit",
+              cursor: "pointer",
             }}
           >
             <FaTimes />
@@ -827,8 +809,8 @@ export default function Departments() {
             <FaBuilding />
           </div>
           <div>
-            <small>Total Departments</small>
-            <strong>{departments.length}</strong>
+            <small>Active Departments</small>
+            <strong>{activeDepartments.length}</strong>
           </div>
         </div>
 
@@ -838,7 +820,7 @@ export default function Departments() {
           </div>
           <div>
             <small>Employees Assigned</small>
-            <strong>{loadingEmployees ? "…" : assignedEmployees}</strong>
+            <strong>{loading ? "…" : assignedEmployees}</strong>
           </div>
         </div>
       </section>
@@ -846,7 +828,7 @@ export default function Departments() {
       <section className="dept-card">
         <h2 className="dept-card-title">Department Directory</h2>
         <p className="dept-card-subtitle">
-          Manage department names, descriptions, and current employee counts.
+          Manage department names, codes, descriptions and employee counts.
         </p>
 
         <div className="dept-toolbar">
@@ -862,12 +844,11 @@ export default function Departments() {
             {search && (
               <button
                 type="button"
-                aria-label="Clear search"
                 onClick={() => setSearch("")}
+                aria-label="Clear search"
                 style={{
                   border: 0,
                   background: "transparent",
-                  color: "#64748b",
                   cursor: "pointer",
                 }}
               >
@@ -876,8 +857,16 @@ export default function Departments() {
             )}
           </label>
 
+          <button
+            type="button"
+            className="dept-secondary"
+            onClick={() => setShowInactive((value) => !value)}
+          >
+            {showInactive ? "Show Active" : "Show Inactive"}
+          </button>
+
           <span className="dept-count">
-            Showing {filteredDepartments.length} of {departments.length} department(s)
+            Showing {filteredDepartments.length} department(s)
           </span>
         </div>
 
@@ -886,87 +875,122 @@ export default function Departments() {
             <thead>
               <tr>
                 <th>Department</th>
+                <th>Code</th>
                 <th>Description</th>
                 <th>Employees</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {filteredDepartments.map((department) => {
-                const count =
-                  employeeCounts.get(
-                    String(department.name || "").trim().toLowerCase()
-                  ) || 0;
+              {!loading &&
+                filteredDepartments.map((department) => {
+                  const id = getDepartmentId(department);
+                  const count = employeeCounts.get(id) || 0;
+                  const isActive = department.isActive !== false;
 
-                return (
-                  <tr key={department.id}>
-                    <td>
-                      <div className="dept-name">
-                        <span className="dept-name-icon">
-                          <FaBuilding />
+                  return (
+                    <tr key={id}>
+                      <td>
+                        <div className="dept-name">
+                          <span className="dept-name-icon">
+                            <FaBuilding />
+                          </span>
+                          <span>{department.name}</span>
+                        </div>
+                      </td>
+
+                      <td>
+                        <span className="dept-badge">
+                          {department.code}
                         </span>
-                        <span>{department.name}</span>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="dept-description">
-                      {department.description || "No description added"}
-                    </td>
+                      <td>
+                        {department.description || "No description"}
+                      </td>
 
-                    <td>
-                      <span
-                        className="dept-employee-count"
-                        title={`${count} assigned employee(s)`}
-                      >
-                        {loadingEmployees ? "…" : count}
-                      </span>
-                    </td>
+                      <td>
+                        <span className="dept-employee-count">
+                          {count}
+                        </span>
+                      </td>
 
-                    <td>
-                      <div className="dept-actions">
-                        <button
-                          type="button"
-                          className="dept-icon-btn"
-                          title="Edit department"
-                          aria-label={`Edit ${department.name}`}
-                          onClick={() => openEdit(department)}
+                      <td>
+                        <span
+                          className={`dept-status ${
+                            isActive ? "active" : "inactive"
+                          }`}
                         >
-                          <FaEdit />
-                        </button>
+                          {isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
 
-                        <button
-                          type="button"
-                          className="dept-icon-btn delete"
-                          title="Delete department"
-                          aria-label={`Delete ${department.name}`}
-                          onClick={() => deleteDepartment(department)}
-                          disabled={loadingEmployees}
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      <td>
+                        <div className="dept-actions">
+                          <button
+                            type="button"
+                            className="dept-icon-btn"
+                            title="Edit department"
+                            aria-label={`Edit ${department.name}`}
+                            onClick={() => openEdit(department)}
+                            disabled={!isActive}
+                          >
+                            <FaEdit />
+                          </button>
+
+                          <button
+                            type="button"
+                            className="dept-icon-btn toggle"
+                            title={isActive ? "Deactivate" : "Reactivate"}
+                            aria-label={
+                              isActive
+                                ? `Deactivate ${department.name}`
+                                : `Reactivate ${department.name}`
+                            }
+                            onClick={() => toggleDepartment(department)}
+                          >
+                            {isActive ? (
+                              <FaToggleOn />
+                            ) : (
+                              <FaToggleOff />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
 
-          {filteredDepartments.length === 0 && (
+          {loading && (
+            <div className="dept-loading">
+              <FaSyncAlt /> Loading departments from server...
+            </div>
+          )}
+
+          {!loading && filteredDepartments.length === 0 && (
             <div className="dept-empty">
               <div className="dept-empty-icon">
                 <FaBuilding />
               </div>
               <strong>
-                {search ? "No matching departments" : "No departments yet"}
+                {search
+                  ? "No matching departments"
+                  : showInactive
+                  ? "No inactive departments"
+                  : "No departments found"}
               </strong>
               <div>
                 {search
-                  ? "Try another search term."
-                  : "Add your first department to get started."}
+                  ? "Try a different search term."
+                  : showInactive
+                  ? "There are no deactivated departments."
+                  : "Add a department to get started."}
               </div>
-              {!search && (
+              {!search && !showInactive && (
                 <button
                   type="button"
                   className="dept-primary"
@@ -996,12 +1020,10 @@ export default function Departments() {
             <div className="dept-modal-head">
               <div>
                 <h2 id="department-modal-title">
-                  {editingId !== null ? "Edit Department" : "Add Department"}
+                  {editingId ? "Edit Department" : "Add Department"}
                 </h2>
                 <p>
-                  {editingId !== null
-                    ? "Update the department details below."
-                    : "Enter the details for your new department."}
+                  Enter the department details below.
                 </p>
               </div>
 
@@ -1023,11 +1045,13 @@ export default function Departments() {
             )}
 
             <div className="dept-field">
-              <label htmlFor="department-name">Department Name *</label>
+              <label htmlFor="department-name">
+                Department Name *
+              </label>
               <input
                 id="department-name"
                 autoFocus
-                maxLength={80}
+                maxLength={100}
                 value={form.name}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -1035,18 +1059,38 @@ export default function Departments() {
                     name: event.target.value,
                   }))
                 }
-                placeholder="e.g. Human Resources"
-                autoComplete="organization-title"
+                placeholder="e.g. Software Development"
                 required
               />
             </div>
 
             <div className="dept-field">
-              <label htmlFor="department-description">Description</label>
+              <label htmlFor="department-code">
+                Department Code *
+              </label>
+              <input
+                id="department-code"
+                maxLength={30}
+                value={form.code}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    code: event.target.value.toUpperCase(),
+                  }))
+                }
+                placeholder="e.g. DEV"
+                required
+              />
+            </div>
+
+            <div className="dept-field">
+              <label htmlFor="department-description">
+                Description
+              </label>
               <textarea
                 id="department-description"
                 rows={4}
-                maxLength={500}
+                maxLength={1000}
                 value={form.description}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -1054,16 +1098,10 @@ export default function Departments() {
                     description: event.target.value,
                   }))
                 }
-                placeholder="Briefly describe this department"
+                placeholder="Describe the department"
               />
-              <small
-                style={{
-                  textAlign: "right",
-                  color: "#64748b",
-                  fontSize: 11,
-                }}
-              >
-                {form.description.length}/500 characters
+              <small style={{ textAlign: "right", color: "#64748b" }}>
+                {form.description.length}/1000 characters
               </small>
             </div>
 
@@ -1089,7 +1127,7 @@ export default function Departments() {
                 ) : (
                   <>
                     <FaSave />{" "}
-                    {editingId !== null ? "Update Department" : "Save Department"}
+                    {editingId ? "Update Department" : "Save Department"}
                   </>
                 )}
               </button>

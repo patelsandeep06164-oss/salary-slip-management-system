@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   FaCalendarAlt,
@@ -10,31 +10,48 @@ import {
   FaUsers,
   FaSyncAlt,
 } from "react-icons/fa";
+import attendanceService from "../../services/attendantService";
 import "./AttendanceList.css";
 
-const STORAGE_KEY = "attendance_records";
+function getToday() {
+  const now = new Date();
 
-function readAttendance() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const parsed = saved ? JSON.parse(saved) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error("Unable to read attendance records:", error);
-    return [];
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function getRecordDate(record) {
+  if (!record?.date) return "";
+
+  const value = String(record.date);
+
+  // MongoDB date values are normally returned as ISO strings.
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10);
   }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  return [
+    parsed.getFullYear(),
+    String(parsed.getMonth() + 1).padStart(2, "0"),
+    String(parsed.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 function formatDate(value) {
   if (!value) return "—";
 
-  const parts = String(value).split("-");
-  if (parts.length !== 3) return String(value);
+  const dateValue = getRecordDate({ date: value });
+  if (!dateValue) return String(value);
 
-  const [year, month, day] = parts.map(Number);
+  const [year, month, day] = dateValue.split("-").map(Number);
   const parsedDate = new Date(year, month - 1, day);
-
-  if (Number.isNaN(parsedDate.getTime())) return String(value);
 
   return parsedDate.toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -43,23 +60,55 @@ function formatDate(value) {
   });
 }
 
-function getToday() {
-  const now = new Date();
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join("-");
+function formatTime(value) {
+  if (!value) return "—";
+
+  const text = String(value);
+
+  // Support both saved Date values and time strings such as "09:00".
+  if (/^\d{1,2}:\d{2}$/.test(text)) {
+    const [hours, minutes] = text.split(":").map(Number);
+    const parsed = new Date();
+    parsed.setHours(hours, minutes, 0, 0);
+
+    return parsed.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) return text;
+
+  return parsed.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
 
 function normalizeStatus(value) {
-  return String(value || "Unknown").trim().toLowerCase();
+  const status = String(value || "Unknown")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+
+  // The backend stores "on-leave"; the UI calls it "Leave".
+  if (status === "on-leave") return "leave";
+
+  return status;
 }
 
 function statusClass(value) {
-  const status = normalizeStatus(value).replace(/\s+/g, "-");
+  const status = normalizeStatus(value);
 
-  if (["present", "late", "absent", "half-day", "leave"].includes(status)) {
+  if (
+    ["present", "late", "absent", "half-day", "leave", "holiday"].includes(
+      status
+    )
+  ) {
     return status;
   }
 
@@ -67,29 +116,92 @@ function statusClass(value) {
 }
 
 function getEmployeeName(record) {
-  return record.employeeName || record.name || "Unknown";
+  const employee = record?.employee;
+
+  if (employee && typeof employee === "object") {
+    const fullName = [employee.firstName, employee.lastName]
+      .filter(Boolean)
+      .join(" ");
+
+    return fullName || employee.name || "Unknown";
+  }
+
+  return record?.employeeName || record?.name || "Unknown";
 }
 
 function getEmployeeCode(record) {
-  return record.employeeCode || record.employeeId || "No employee ID";
+  const employee = record?.employee;
+
+  if (employee && typeof employee === "object") {
+    return (
+      employee.employeeCode ||
+      employee.employeeId ||
+      employee.code ||
+      "No employee ID"
+    );
+  }
+
+  return (
+    record?.employeeCode ||
+    (typeof record?.employeeId === "string" ? record.employeeId : "") ||
+    "No employee ID"
+  );
 }
 
 function getDepartment(record) {
-  const department = record.department;
+  const department = record?.department;
 
-  if (typeof department === "string") return department || "—";
+  if (typeof department === "string") {
+    return department || "—";
+  }
 
   if (department && typeof department === "object") {
-    return department.name || department.departmentName || "—";
+    return (
+      department.name ||
+      department.departmentName ||
+      department.title ||
+      "—"
+    );
+  }
+
+  const employee = record?.employee;
+
+  if (employee && typeof employee === "object") {
+    const employeeDepartment = employee.department;
+
+    if (typeof employeeDepartment === "string") {
+      return employeeDepartment || "—";
+    }
+
+    if (employeeDepartment && typeof employeeDepartment === "object") {
+      return (
+        employeeDepartment.name ||
+        employeeDepartment.departmentName ||
+        "—"
+      );
+    }
   }
 
   return "—";
 }
 
+function getNotes(record) {
+  return record?.remarks || record?.notes || "";
+}
+
+function getApiError(error, fallback) {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    fallback
+  );
+}
+
 function escapeCsv(value) {
   let text = String(value ?? "");
 
-  // Reduce the risk of spreadsheet formula injection when opening exported CSV.
+  // Reduce spreadsheet formula-injection risk in exported CSV files.
   if (/^[\s]*[=+\-@]/.test(text)) {
     text = `'${text}`;
   }
@@ -97,18 +209,74 @@ function escapeCsv(value) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+function getResponseRecords(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.records)) return response.records;
+  if (Array.isArray(response?.data?.records)) return response.data.records;
+  if (Array.isArray(response?.data)) return response.data;
+
+  return [];
+}
+
 export default function AttendanceList() {
-  const [records, setRecords] = useState(readAttendance);
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
   const [date, setDate] = useState("");
+
   const [notice, setNotice] = useState("");
   const [noticeType, setNoticeType] = useState("success");
+  const [loadError, setLoadError] = useState("");
 
   const today = getToday();
 
+  const showNotice = useCallback((message, type = "success") => {
+    setNotice(message);
+    setNoticeType(type);
+  }, []);
+
+  const refreshRecords = useCallback(
+    async (showSuccessNotice = true) => {
+      setRefreshing(true);
+      setLoadError("");
+
+      try {
+        const response = await attendanceService.getAll();
+        const list = getResponseRecords(response);
+
+        setRecords(list);
+
+        if (showSuccessNotice) {
+          showNotice("Attendance records refreshed successfully.");
+        }
+      } catch (error) {
+        console.error("Unable to load attendance records:", error);
+
+        const message = getApiError(
+          error,
+          "Unable to load attendance records from the server."
+        );
+
+        setLoadError(message);
+        showNotice(message, "error");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [showNotice]
+  );
+
+  useEffect(() => {
+    refreshRecords(false);
+  }, [refreshRecords]);
+
   const filteredRecords = useMemo(() => {
     const query = search.trim().toLowerCase();
+    const selectedStatus = normalizeStatus(status);
 
     return records
       .filter((record) => {
@@ -116,8 +284,8 @@ export default function AttendanceList() {
           getEmployeeName(record),
           getEmployeeCode(record),
           getDepartment(record),
-          record.designation,
-          record.notes,
+          record?.designation,
+          getNotes(record),
         ]
           .join(" ")
           .toLowerCase();
@@ -126,15 +294,16 @@ export default function AttendanceList() {
 
         const matchesStatus =
           status === "All" ||
-          normalizeStatus(record.status) === normalizeStatus(status);
+          normalizeStatus(record?.status) === selectedStatus;
 
-        const matchesDate = !date || record.date === date;
+        const matchesDate =
+          !date || getRecordDate(record) === date;
 
         return matchesSearch && matchesStatus && matchesDate;
       })
       .sort((a, b) => {
-        const dateOrder = String(b.date || "").localeCompare(
-          String(a.date || "")
+        const dateOrder = getRecordDate(b).localeCompare(
+          getRecordDate(a)
         );
 
         return (
@@ -145,12 +314,12 @@ export default function AttendanceList() {
   }, [records, search, status, date]);
 
   const todayRecords = useMemo(
-    () => records.filter((record) => record.date === today),
+    () => records.filter((record) => getRecordDate(record) === today),
     [records, today]
   );
 
   const presentToday = todayRecords.filter((record) =>
-    ["present", "late", "half day"].includes(
+    ["present", "late", "half-day"].includes(
       normalizeStatus(record.status)
     )
   ).length;
@@ -159,53 +328,12 @@ export default function AttendanceList() {
     (record) => normalizeStatus(record.status) === "absent"
   ).length;
 
-  function showNotice(message, type = "success") {
-    setNotice(message);
-    setNoticeType(type);
-  }
-
-  function refreshRecords() {
-    setRecords(readAttendance());
-    showNotice("Attendance records refreshed.");
-  }
-
-  function deleteRecord(record) {
-    const employeeName = getEmployeeName(record);
-
-    const confirmed = window.confirm(
-      `Delete attendance for ${employeeName} on ${record.date || "this date"}?`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      const recordId = record.id ?? record._id;
-
-      const updated = records.filter((item) => {
-        const itemId = item.id ?? item._id;
-
-        if (recordId !== undefined && recordId !== null) {
-          return String(itemId) !== String(recordId);
-        }
-
-        return item !== record;
-      });
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      setRecords(updated);
-      showNotice("Attendance record deleted successfully.");
-    } catch (error) {
-      console.error("Unable to delete attendance record:", error);
-      showNotice(
-        "Attendance record delete nahi hua. Browser storage check karein.",
-        "error"
-      );
-    }
-  }
-
   function exportCsv() {
     if (filteredRecords.length === 0) {
-      showNotice("Export karne ke liye koi attendance record nahi hai.", "error");
+      showNotice(
+        "Export karne ke liye koi attendance record nahi hai.",
+        "error"
+      );
       return;
     }
 
@@ -213,11 +341,11 @@ export default function AttendanceList() {
       ["Employee", getEmployeeName],
       ["Employee ID", getEmployeeCode],
       ["Department", getDepartment],
-      ["Date", (record) => record.date],
-      ["Check In", (record) => record.checkIn],
-      ["Check Out", (record) => record.checkOut],
+      ["Date", (record) => getRecordDate(record)],
+      ["Check In", (record) => formatTime(record.checkIn)],
+      ["Check Out", (record) => formatTime(record.checkOut)],
       ["Status", (record) => record.status],
-      ["Notes", (record) => record.notes],
+      ["Notes", getNotes],
     ];
 
     const csv = [
@@ -241,6 +369,7 @@ export default function AttendanceList() {
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = `attendance-records-${today}.csv`;
+
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -256,13 +385,30 @@ export default function AttendanceList() {
     }
   }
 
+  function handleDeleteUnavailable() {
+    showNotice(
+      "Delete feature abhi backend API se connected nahi hai. Record delete nahi hua.",
+      "error"
+    );
+  }
+
+  function clearFilters() {
+    setSearch("");
+    setDate("");
+    setStatus("All");
+  }
+
   return (
     <div className="attendance-list-page">
       <header className="attendance-list-header">
         <div className="attendance-list-heading">
-          <span className="attendance-list-eyebrow">ATTENDANCE MANAGEMENT</span>
+          <span className="attendance-list-eyebrow">
+            ATTENDANCE MANAGEMENT
+          </span>
           <h1>Attendance Records</h1>
-          <p>Review employee attendance records, check-in times and status.</p>
+          <p>
+            Review employee attendance records, check-in times and status.
+          </p>
         </div>
 
         <div className="attendance-list-actions">
@@ -270,6 +416,7 @@ export default function AttendanceList() {
             type="button"
             className="attendance-list-export"
             onClick={exportCsv}
+            disabled={loading || Boolean(loadError)}
           >
             <FaFileAlt /> Export CSV
           </button>
@@ -285,8 +432,10 @@ export default function AttendanceList() {
 
       {notice && (
         <div
-          className={`attendance-list-notice ${noticeType === "error" ? "error" : ""}`}
-          role="status"
+          className={`attendance-list-notice ${
+            noticeType === "error" ? "error" : ""
+          }`}
+          role={noticeType === "error" ? "alert" : "status"}
           aria-live="polite"
         >
           <span>{notice}</span>
@@ -307,7 +456,7 @@ export default function AttendanceList() {
           </span>
           <div>
             <span>Today's Records</span>
-            <strong>{todayRecords.length}</strong>
+            <strong>{loading ? "—" : todayRecords.length}</strong>
             <small>Records dated today</small>
           </div>
         </article>
@@ -318,7 +467,7 @@ export default function AttendanceList() {
           </span>
           <div>
             <span>Present Today</span>
-            <strong>{presentToday}</strong>
+            <strong>{loading ? "—" : presentToday}</strong>
             <small>Present, late and half day</small>
           </div>
         </article>
@@ -329,7 +478,7 @@ export default function AttendanceList() {
           </span>
           <div>
             <span>Absent Today</span>
-            <strong>{absentToday}</strong>
+            <strong>{loading ? "—" : absentToday}</strong>
             <small>Marked absent</small>
           </div>
         </article>
@@ -345,9 +494,11 @@ export default function AttendanceList() {
           <button
             type="button"
             className="attendance-list-refresh"
-            onClick={refreshRecords}
+            onClick={() => refreshRecords(true)}
+            disabled={refreshing}
           >
-            <FaSyncAlt /> Refresh
+            <FaSyncAlt />
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
 
@@ -360,7 +511,9 @@ export default function AttendanceList() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search employee, ID, department..."
               aria-label="Search attendance records"
+              disabled={loading || Boolean(loadError)}
             />
+
             {search && (
               <button
                 type="button"
@@ -381,6 +534,7 @@ export default function AttendanceList() {
               value={date}
               onChange={(event) => setDate(event.target.value)}
               aria-label="Filter by attendance date"
+              disabled={loading || Boolean(loadError)}
             />
           </label>
 
@@ -391,6 +545,7 @@ export default function AttendanceList() {
               value={status}
               onChange={(event) => setStatus(event.target.value)}
               aria-label="Filter attendance status"
+              disabled={loading || Boolean(loadError)}
             >
               <option value="All">All statuses</option>
               <option value="Present">Present</option>
@@ -398,118 +553,162 @@ export default function AttendanceList() {
               <option value="Absent">Absent</option>
               <option value="Half Day">Half Day</option>
               <option value="Leave">Leave</option>
+              <option value="Holiday">Holiday</option>
             </select>
           </label>
         </div>
 
         <div className="attendance-list-table-wrap">
-          <table className="attendance-list-table">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Department</th>
-                <th>Date</th>
-                <th>Check In</th>
-                <th>Check Out</th>
-                <th>Status</th>
-                <th>Notes</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredRecords.map((record, index) => {
-                const recordKey = record.id ?? record._id ?? `${record.date}-${getEmployeeCode(record)}-${index}`;
-
-                return (
-                  <tr key={recordKey}>
-                    <td>
-                      <div className="attendance-list-person">
-                        <span className="attendance-list-avatar">
-                          {getEmployeeName(record).trim().charAt(0).toUpperCase()}
-                        </span>
-                        <div>
-                          <strong>{getEmployeeName(record)}</strong>
-                          <small>{getEmployeeCode(record)}</small>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td>{getDepartment(record)}</td>
-                    <td>{formatDate(record.date)}</td>
-                    <td>{record.checkIn || "—"}</td>
-                    <td>{record.checkOut || "—"}</td>
-
-                    <td>
-                      <span
-                        className={`attendance-list-badge ${statusClass(record.status)}`}
-                      >
-                        {record.status || "Unknown"}
-                      </span>
-                    </td>
-
-                    <td className="attendance-list-notes" title={record.notes || ""}>
-                      {record.notes || "—"}
-                    </td>
-
-                    <td>
-                      <button
-                        type="button"
-                        className="attendance-list-delete"
-                        title="Delete attendance record"
-                        aria-label={`Delete attendance for ${getEmployeeName(record)}`}
-                        onClick={() => deleteRecord(record)}
-                      >
-                        <FaTrash />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {filteredRecords.length === 0 && (
-            <div className="attendance-list-empty">
+          {loading ? (
+            <div className="attendance-list-empty" role="status">
+              <span className="attendance-list-empty-icon">
+                <FaSyncAlt />
+              </span>
+              <strong>Loading attendance records...</strong>
+              <p>Records are being fetched from the server.</p>
+            </div>
+          ) : loadError ? (
+            <div className="attendance-list-empty" role="alert">
               <span className="attendance-list-empty-icon">
                 <FaCalendarAlt />
               </span>
-              <strong>
-                {records.length === 0
-                  ? "No attendance records yet"
-                  : "No matching attendance records"}
-              </strong>
-              <p>
-                {records.length === 0
-                  ? "Mark attendance to see saved records here."
-                  : "Try changing the search, date or status filters."}
-              </p>
-              {records.length === 0 && (
-                <Link
-                  to="/admin/attendance/mark"
-                  className="attendance-list-empty-link"
-                >
-                  <FaPlus /> Mark first attendance
-                </Link>
-              )}
+              <strong>Unable to load attendance records</strong>
+              <p>{loadError}</p>
+              <button
+                type="button"
+                className="attendance-list-refresh"
+                onClick={() => refreshRecords(true)}
+                disabled={refreshing}
+              >
+                <FaSyncAlt />
+                {refreshing ? "Retrying..." : "Try again"}
+              </button>
             </div>
+          ) : (
+            <>
+              <table className="attendance-list-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    <th>Date</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredRecords.map((record, index) => {
+                    const recordKey =
+                      record._id ||
+                      record.id ||
+                      `${getRecordDate(record)}-${getEmployeeCode(record)}-${index}`;
+
+                    const employeeName = getEmployeeName(record);
+                    const notes = getNotes(record);
+
+                    return (
+                      <tr key={recordKey}>
+                        <td>
+                          <div className="attendance-list-person">
+                            <span className="attendance-list-avatar">
+                              {employeeName.trim().charAt(0).toUpperCase()}
+                            </span>
+                            <div>
+                              <strong>{employeeName}</strong>
+                              <small>{getEmployeeCode(record)}</small>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td>{getDepartment(record)}</td>
+                        <td>{formatDate(record.date)}</td>
+                        <td>{formatTime(record.checkIn)}</td>
+                        <td>{formatTime(record.checkOut)}</td>
+
+                        <td>
+                          <span
+                            className={`attendance-list-badge ${statusClass(
+                              record.status
+                            )}`}
+                          >
+                            {normalizeStatus(record.status) === "half-day"
+                              ? "Half Day"
+                              : normalizeStatus(record.status) === "leave"
+                                ? "Leave"
+                                : record.status || "Unknown"}
+                          </span>
+                        </td>
+
+                        <td
+                          className="attendance-list-notes"
+                          title={notes}
+                        >
+                          {notes || "—"}
+                        </td>
+
+                        <td>
+                          <button
+                            type="button"
+                            className="attendance-list-delete"
+                            title="Backend delete API is not configured"
+                            aria-label={`Delete attendance for ${employeeName} (currently unavailable)`}
+                            onClick={handleDeleteUnavailable}
+                            disabled
+                          >
+                            <FaTrash />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {filteredRecords.length === 0 && (
+                <div className="attendance-list-empty">
+                  <span className="attendance-list-empty-icon">
+                    <FaCalendarAlt />
+                  </span>
+
+                  <strong>
+                    {records.length === 0
+                      ? "No attendance records yet"
+                      : "No matching attendance records"}
+                  </strong>
+
+                  <p>
+                    {records.length === 0
+                      ? "Mark attendance to see database records here."
+                      : "Try changing the search, date or status filters."}
+                  </p>
+
+                  {records.length === 0 && (
+                    <Link
+                      to="/admin/attendance/mark"
+                      className="attendance-list-empty-link"
+                    >
+                      <FaPlus /> Mark first attendance
+                    </Link>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 
         <div className="attendance-list-footer">
           <span>
-            Showing <strong>{filteredRecords.length}</strong> of{" "}
-            <strong>{records.length}</strong> attendance records
+            Showing <strong>{loading || loadError ? 0 : filteredRecords.length}</strong>{" "}
+            of <strong>{loading || loadError ? 0 : records.length}</strong>{" "}
+            attendance records
           </span>
+
           {(search || date || status !== "All") && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch("");
-                setDate("");
-                setStatus("All");
-              }}
-            >
+            <button type="button" onClick={clearFilters}>
               Clear all filters
             </button>
           )}

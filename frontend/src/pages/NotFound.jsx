@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   FaArrowLeft,
   FaHome,
-  FaSearch,
   FaExclamationTriangle,
 } from "react-icons/fa";
 

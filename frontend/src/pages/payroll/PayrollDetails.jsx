@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   FaArrowLeft,
-  FaCalendarAlt,
   FaCheckCircle,
   FaExclamationCircle,
   FaFileInvoiceDollar,
@@ -13,7 +12,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 
 const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  process.env.REACT_APP_API_URL || "https://salary-slip-backend-rjgj.onrender.com/api";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {

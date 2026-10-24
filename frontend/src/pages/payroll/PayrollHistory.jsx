@@ -15,13 +15,17 @@ import {
   FaExclamationCircle,
   FaSyncAlt,
 } from "react-icons/fa";
+
 import { useNavigate } from "react-router-dom";
 import payrollService from "../../services/payrollService";
 import salarySlipService from "../../services/salarySlipService";
 import "./PayrollHistory.css";
 
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+const API_BASE_URL = (
+  process.env.REACT_APP_API_URL ||
+  "https://salary-slip-backend-rjgj.onrender.com/api"
+).replace(/\/+$/, "");
+
 const PAYROLL_API = `${API_BASE_URL}/payroll`;
 
 const formatCurrency = (amount) =>
@@ -35,6 +39,7 @@ const formatDate = (value) => {
   if (!value) return "—";
 
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) return "—";
 
   return date.toLocaleDateString("en-IN", {
@@ -176,6 +181,8 @@ function PayrollHistory() {
 
       setPayrollRecords(extractRecords(data));
     } catch (error) {
+      console.error("Load Payroll History Error:", error);
+
       setNoticeType("error");
       setNotice(
         error.message || "Unable to connect to the payroll server."
@@ -191,7 +198,12 @@ function PayrollHistory() {
 
   const handleProcessPayroll = async (record) => {
     const id = getPayrollId(record);
-    if (!id) return;
+
+    if (!id) {
+      setNoticeType("error");
+      setNotice("Payroll ID is missing. Refresh and try again.");
+      return;
+    }
 
     setActionBusyId(id);
     setNotice("");
@@ -209,6 +221,9 @@ function PayrollHistory() {
 
       await loadPayrollRecords();
     } catch (error) {
+      console.error("Process Payroll Error:", error);
+      console.error("API response:", error.response?.data);
+
       setNoticeType("error");
       setNotice(
         error?.response?.data?.message ||
@@ -220,42 +235,110 @@ function PayrollHistory() {
     }
   };
 
+  // Generate salary slip first, then send it by email.
+  // Console logs identify which request is failing.
   const handleGenerateAndEmailSlip = async (record) => {
     const payrollId = getPayrollId(record);
-    if (!payrollId) return;
+
+    if (!payrollId) {
+      setNoticeType("error");
+      setNotice("Payroll ID is missing. Please refresh and try again.");
+      return;
+    }
 
     setActionBusyId(payrollId);
     setNotice("");
 
     try {
-      const generated = await salarySlipService.generate({ payrollId });
+      console.log("STEP 1: Starting salary slip generation", {
+        payrollId,
+        employee: getEmployeeName(record),
+      });
+
+      let generated;
+
+      try {
+        generated = await salarySlipService.generate({ payrollId });
+
+        console.log("STEP 2: Generate API response", generated);
+      } catch (error) {
+        console.error("SALARY SLIP GENERATION REQUEST FAILED:", {
+          url: error.config?.url,
+          method: error.config?.method,
+          status: error.response?.status,
+          response: error.response?.data,
+          message: error.message,
+        });
+
+        throw new Error(
+          `Salary slip generation failed: ${
+            error.response?.data?.message ||
+            error.message ||
+            "Unknown server error"
+          }`
+        );
+      }
 
       const slip =
         generated?.salarySlip ||
-        generated?.data?.salarySlip;
+        generated?.data?.salarySlip ||
+        generated?.data ||
+        null;
 
       const slipId = slip?._id || slip?.id;
 
       if (!slipId) {
+        console.error(
+          "Salary slip response does not contain a slip ID:",
+          generated
+        );
+
         throw new Error(
-          "Salary slip was not returned by the server."
+          "The server did not return a salary slip ID. Check the generate API response."
         );
       }
 
-      await salarySlipService.email(slipId);
+      console.log("STEP 3: Salary slip generated; sending email", {
+        slipId,
+        payrollId,
+      });
+
+      let emailResult;
+
+      try {
+        emailResult = await salarySlipService.email(slipId);
+
+        console.log("STEP 4: Email API response", emailResult);
+      } catch (error) {
+        console.error("SALARY SLIP EMAIL REQUEST FAILED:", {
+          url: error.config?.url,
+          method: error.config?.method,
+          status: error.response?.status,
+          response: error.response?.data,
+          message: error.message,
+        });
+
+        throw new Error(
+          `Salary slip was generated, but email failed: ${
+            error.response?.data?.message ||
+            error.message ||
+            "Unknown server error"
+          }`
+        );
+      }
 
       setNoticeType("success");
       setNotice(
-        "Salary slip generated and email accepted by the configured mail server."
+        "Salary slip generated and email request completed successfully."
       );
 
       await loadPayrollRecords();
     } catch (error) {
+      console.error("GENERATE & EMAIL SLIP FAILED:", error);
+
       setNoticeType("error");
       setNotice(
-        error?.response?.data?.message ||
-          error.message ||
-          "Salary slip generation/email failed."
+        error.message || "Salary slip generation/email failed."
       );
     } finally {
       setActionBusyId("");
@@ -294,6 +377,7 @@ function PayrollHistory() {
         const employeeName = getEmployeeName(record).toLowerCase();
         const employeeId = getEmployeeId(record).toLowerCase();
         const payrollId = getPayrollId(record).toLowerCase();
+
         const department = String(
           record.department ||
             record.employee?.department?.name ||
@@ -322,9 +406,7 @@ function PayrollHistory() {
         const matchesMonth =
           !monthFilter || recordMonth === monthFilter;
 
-        const status = String(
-          record.status || "Generated"
-        ).toLowerCase();
+        const status = String(record.status || "Generated").toLowerCase();
 
         const matchesStatus =
           statusFilter === "All" ||
@@ -429,6 +511,7 @@ function PayrollHistory() {
     document.body.appendChild(link);
     link.click();
     link.remove();
+
     URL.revokeObjectURL(url);
 
     setNoticeType("success");
@@ -458,9 +541,7 @@ function PayrollHistory() {
       return;
     }
 
-    navigate(
-      `/admin/payroll/details/${encodeURIComponent(id)}`
-    );
+    navigate(`/admin/payroll/details/${encodeURIComponent(id)}`);
   };
 
   return (
@@ -671,7 +752,9 @@ function PayrollHistory() {
                   const id = getPayrollId(record);
 
                   return (
-                    <tr key={id || `${getEmployeeId(record)}-${index}`}>
+                    <tr
+                      key={id || `${getEmployeeId(record)}-${index}`}
+                    >
                       <td>
                         <div className="payroll-history-employee">
                           <div className="payroll-history-avatar">
@@ -747,9 +830,7 @@ function PayrollHistory() {
                               onClick={() => handleProcessPayroll(record)}
                               disabled={Boolean(actionBusyId)}
                             >
-                              {actionBusyId === id
-                                ? "Processing…"
-                                : "Process"}
+                              {actionBusyId === id ? "Processing…" : "Process"}
                             </button>
                           )}
 
@@ -800,9 +881,7 @@ function PayrollHistory() {
                       </p>
                       <button
                         type="button"
-                        onClick={() =>
-                          navigate("/admin/payroll/generate")
-                        }
+                        onClick={() => navigate("/admin/payroll/generate")}
                       >
                         Generate Payroll
                       </button>

@@ -18,6 +18,8 @@ import {
   FaShieldAlt,
 } from "react-icons/fa";
 import { Link } from "react-router-dom";
+import api from "../../services/api";
+import authService from "../../services/authService";
 import "./MyProfile.css";
 
 const emptyProfile = {
@@ -30,7 +32,6 @@ const emptyProfile = {
   status: "",
   phone: "",
   address: "",
-  emergencyContact: "",
   photo: "",
 };
 
@@ -60,10 +61,10 @@ function getInitials(name) {
 
 function MyProfile() {
   const [employee, setEmployee] = useState(emptyProfile);
+
   const [formData, setFormData] = useState({
     phone: "",
     address: "",
-    emergencyContact: "",
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -80,60 +81,147 @@ function MyProfile() {
       setError("");
 
       try {
-        const token = localStorage.getItem("token");
+        const response = await api.get("/auth/me");
 
-        const response = await fetch("/api/employee/profile", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
+        const payload = response.data || {};
+        const user =
+          payload.user ||
+          payload.data?.user ||
+          payload.data ||
+          payload;
 
-        if (!response.ok) {
-          throw new Error(
-            response.status === 401 || response.status === 403
-              ? "Your session may have expired. Please sign in again."
-              : "Unable to load your profile. Please try again."
-          );
+        const storedUser = authService.getStoredUser() || {};
+
+        let employeeData = {};
+
+        const employeeId =
+          user.employeeId ||
+          storedUser.employeeId ||
+          storedUser.employee?._id ||
+          "";
+
+        if (user.role === "employee" && employeeId) {
+          try {
+            const employeeResponse = await api.get(
+              `/employees/${encodeURIComponent(employeeId)}`
+            );
+
+            const employeePayload = employeeResponse.data || {};
+
+            employeeData =
+              employeePayload.employee ||
+              employeePayload.data?.employee ||
+              employeePayload.data ||
+              {};
+          } catch (employeeError) {
+            // Basic account details can still be displayed
+            // if the separate employee request fails.
+            console.error(
+              "Unable to load employment details:",
+              employeeError.response?.data?.message ||
+                employeeError.message
+            );
+          }
         }
-
-        const result = await response.json();
-        const data = result.employee || result.data || result;
 
         if (!active) return;
 
+        const rawAddress =
+          employeeData.address || user.address || "";
+
+        const address =
+          typeof rawAddress === "string"
+            ? rawAddress
+            : rawAddress && typeof rawAddress === "object"
+              ? [
+                  rawAddress.street,
+                  rawAddress.city,
+                  rawAddress.state,
+                  rawAddress.postalCode,
+                  rawAddress.country,
+                ]
+                  .filter(Boolean)
+                  .join(", ")
+              : "";
+
+        const departmentValue = employeeData.department;
+
+        const department =
+          departmentValue && typeof departmentValue === "object"
+            ? departmentValue.name ||
+              departmentValue.departmentName ||
+              departmentValue.code ||
+              ""
+            : departmentValue || "";
+
         const profile = {
           ...emptyProfile,
-          ...data,
           name:
-            data.name ||
-            data.fullName ||
-            [data.firstName, data.lastName].filter(Boolean).join(" "),
+            user.name ||
+            employeeData.name ||
+            [
+              employeeData.firstName,
+              employeeData.lastName,
+            ]
+              .filter(Boolean)
+              .join(" ") ||
+            storedUser.name ||
+            "",
+          email:
+            user.email ||
+            employeeData.email ||
+            storedUser.email ||
+            "",
           employeeId:
-            data.employeeId || data.employeeCode || data.id || "",
+            employeeData.employeeCode ||
+            employeeData.employeeId ||
+            employeeData._id ||
+            employeeId ||
+            "",
+          department,
           designation:
-            data.designation || data.position || data.jobTitle || "",
-          joiningDate: data.joiningDate || data.dateOfJoining || "",
-          phone: data.phone || data.mobile || "",
-          photo: data.photo || data.profileImage || "",
+            employeeData.designation ||
+            employeeData.position ||
+            employeeData.jobTitle ||
+            "",
+          joiningDate:
+            employeeData.joiningDate ||
+            employeeData.dateOfJoining ||
+            "",
+          status:
+            employeeData.status ||
+            (user.isActive === false ? "Inactive" : "Active"),
+          phone:
+            user.phone ||
+            employeeData.phone ||
+            employeeData.mobile ||
+            "",
+          address,
+          photo:
+            user.profilePhoto ||
+            employeeData.photo ||
+            employeeData.profileImage ||
+            "",
         };
 
         setEmployee(profile);
+
         setFormData({
           phone: profile.phone,
-          address: profile.address || "",
-          emergencyContact: profile.emergencyContact || "",
+          address: profile.address,
         });
       } catch (err) {
         if (active) {
           setError(
-            err.message ||
-              "Unable to connect to the server. Please try again."
+            err.response?.data?.message ||
+              err.message ||
+              "Unable to load your profile. Please try again."
           );
         }
       } finally {
-        if (active) setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+        }
       }
     }
 
@@ -160,7 +248,6 @@ function MyProfile() {
     setFormData({
       phone: employee.phone || "",
       address: employee.address || "",
-      emergencyContact: employee.emergencyContact || "",
     });
 
     setIsEditing(false);
@@ -174,74 +261,72 @@ function MyProfile() {
     setError("");
     setSuccess("");
 
+    const phone = formData.phone.trim();
+    const address = formData.address.trim();
+
     const phonePattern = /^[+\d\s()-]{7,20}$/;
 
-    if (
-      formData.phone.trim() &&
-      !phonePattern.test(formData.phone.trim())
-    ) {
+    if (phone && !phonePattern.test(phone)) {
       setError("Please enter a valid phone number.");
       return;
     }
 
-    if (
-      formData.emergencyContact.trim() &&
-      !phonePattern.test(formData.emergencyContact.trim())
-    ) {
-      setError("Please enter a valid emergency contact number.");
+    if (address.length > 300) {
+      setError("Address cannot exceed 300 characters.");
       return;
     }
 
     setIsSaving(true);
 
     try {
-      const token = localStorage.getItem("token");
-
-      const response = await fetch("/api/employee/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          phone: formData.phone.trim(),
-          mobile: formData.phone.trim(),
-          address: formData.address.trim(),
-          emergencyContact: formData.emergencyContact.trim(),
-        }),
+      const response = await api.patch("/auth/profile", {
+        phone,
+        address,
       });
 
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
+      const payload = response.data || {};
 
-        throw new Error(
-          result.message || "Unable to save your profile changes."
-        );
-      }
+      const updatedUser =
+        payload.user ||
+        payload.data?.user ||
+        {};
 
-      const result = await response.json().catch(() => ({}));
-      const updatedData = result.employee || result.data || {};
+      const storedUser = authService.getStoredUser() || {};
+
+      const mergedUser = {
+        ...storedUser,
+        ...updatedUser,
+        phone,
+        address,
+      };
+
+      localStorage.setItem("user", JSON.stringify(mergedUser));
 
       const updatedEmployee = {
         ...employee,
-        ...updatedData,
-        phone: formData.phone.trim(),
-        mobile: formData.phone.trim(),
-        address: formData.address.trim(),
-        emergencyContact: formData.emergencyContact.trim(),
+        phone,
+        address,
+        name: mergedUser.name || employee.name,
+        email: mergedUser.email || employee.email,
       };
 
       setEmployee(updatedEmployee);
+
       setFormData({
-        phone: updatedEmployee.phone || "",
-        address: updatedEmployee.address || "",
-        emergencyContact: updatedEmployee.emergencyContact || "",
+        phone: updatedEmployee.phone,
+        address: updatedEmployee.address,
       });
+
       setIsEditing(false);
-      setSuccess("Your profile has been updated successfully.");
+
+      setSuccess(
+        payload.message ||
+          "Your profile has been updated successfully."
+      );
     } catch (err) {
       setError(
-        err.message ||
+        err.response?.data?.message ||
+          err.message ||
           "Unable to save your changes. Please try again."
       );
     } finally {
@@ -310,9 +395,12 @@ function MyProfile() {
           <span className="employee-profile-eyebrow">
             EMPLOYEE ACCOUNT
           </span>
+
           <h1>My Profile</h1>
+
           <p>
-            View your employee information and manage your contact details.
+            View your employee information and manage your
+            contact details.
           </p>
         </div>
 
@@ -333,14 +421,20 @@ function MyProfile() {
       </header>
 
       {error && (
-        <div className="employee-profile-alert error" role="alert">
+        <div
+          className="employee-profile-alert error"
+          role="alert"
+        >
           <FaShieldAlt />
           <span>{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="employee-profile-alert success" role="status">
+        <div
+          className="employee-profile-alert success"
+          role="status"
+        >
           <FaCheckCircle />
           <span>{success}</span>
         </div>
@@ -349,7 +443,10 @@ function MyProfile() {
       <section className="employee-profile-hero">
         <div className="employee-profile-avatar">
           {employee.photo ? (
-            <img src={employee.photo} alt={employee.name || "Employee"} />
+            <img
+              src={employee.photo}
+              alt={employee.name || "Employee"}
+            />
           ) : (
             <span>{getInitials(employee.name)}</span>
           )}
@@ -357,7 +454,10 @@ function MyProfile() {
 
         <div className="employee-profile-hero-info">
           <h2>{employee.name || "Employee Name"}</h2>
-          <p>{employee.designation || "Designation not assigned"}</p>
+
+          <p>
+            {employee.designation || "Designation not assigned"}
+          </p>
 
           <div className="employee-profile-hero-meta">
             <span>
@@ -382,7 +482,7 @@ function MyProfile() {
         <section className="employee-profile-details-card">
           <div className="employee-profile-section-heading">
             <div>
-              <h2>Personal & Employment Details</h2>
+              <h2>Personal &amp; Employment Details</h2>
               <p>Your registered employee information.</p>
             </div>
 
@@ -403,7 +503,9 @@ function MyProfile() {
 
                 <div>
                   <small>{detail.label}</small>
-                  <strong>{detail.value || "Not provided"}</strong>
+                  <strong>
+                    {detail.value || "Not provided"}
+                  </strong>
                 </div>
               </div>
             ))}
@@ -416,9 +518,10 @@ function MyProfile() {
           </div>
 
           <h2>Account Security</h2>
+
           <p>
-            Keep your contact information up to date and protect your
-            employee account with a strong password.
+            Keep your contact information up to date and protect
+            your employee account with a strong password.
           </p>
 
           <Link
@@ -432,8 +535,8 @@ function MyProfile() {
           <div className="employee-profile-security-note">
             <FaCheckCircle />
             <span>
-              Your official employment information is managed by your
-              HR administrator. Contact HR for corrections.
+              Your official employment information is managed by
+              your HR administrator. Contact HR for corrections.
             </span>
           </div>
         </aside>
@@ -443,10 +546,11 @@ function MyProfile() {
         <div className="employee-profile-section-heading">
           <div>
             <h2>Contact Information</h2>
+
             <p>
               {isEditing
-                ? "Update your phone number, address and emergency contact."
-                : "Your contact details and emergency contact."}
+                ? "Update your phone number and address."
+                : "Your saved phone number and address."}
             </p>
           </div>
 
@@ -458,10 +562,13 @@ function MyProfile() {
         <form onSubmit={handleSave}>
           <div className="employee-profile-contact-grid">
             <div className="employee-profile-field">
-              <label htmlFor="profile-phone">Phone Number</label>
+              <label htmlFor="profile-phone">
+                Phone Number
+              </label>
 
               <div className="employee-profile-input-wrap">
                 <FaPhone />
+
                 <input
                   id="profile-phone"
                   type="tel"
@@ -475,31 +582,14 @@ function MyProfile() {
               </div>
             </div>
 
-            <div className="employee-profile-field">
-              <label htmlFor="profile-emergency">
-                Emergency Contact
+            <div className="employee-profile-field employee-profile-address-field">
+              <label htmlFor="profile-address">
+                Address
               </label>
 
               <div className="employee-profile-input-wrap">
-                <FaPhone />
-                <input
-                  id="profile-emergency"
-                  type="tel"
-                  name="emergencyContact"
-                  value={formData.emergencyContact}
-                  onChange={handleChange}
-                  placeholder="Enter emergency contact"
-                  readOnly={!isEditing}
-                  autoComplete="tel"
-                />
-              </div>
-            </div>
-
-            <div className="employee-profile-field employee-profile-address-field">
-              <label htmlFor="profile-address">Address</label>
-
-              <div className="employee-profile-input-wrap">
                 <FaMapMarkerAlt />
+
                 <textarea
                   id="profile-address"
                   name="address"
@@ -540,8 +630,8 @@ function MyProfile() {
 
       <p className="employee-profile-footer-note">
         <FaShieldAlt />
-        Your profile information is managed securely through your employee
-        account.
+        Your profile information is managed securely through your
+        employee account.
       </p>
     </main>
   );

@@ -1,18 +1,19 @@
 import axios from "axios";
 
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+const API_BASE_URL = (
+  process.env.REACT_APP_API_URL ||
+  "https://salary-slip-backend-rjgj.onrender.com/api"
+).replace(/\/+$/, "");
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 20000,
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
-  adapter: "xhr",
 });
 
-// Attach authentication token to requests
+// Attach login token to API requests.
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -27,23 +28,22 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle API responses and authentication errors
+// Handle API errors.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 401) {
-      const url = error?.config?.url || "";
+    const status = error?.response?.status;
+    const url = error?.config?.url || "";
 
-      // Do not clear the session for login/password recovery failures.
-      const isAuthRequest =
-        url.includes("/auth/login") ||
-        url.includes("/auth/forgot-password") ||
-        url.includes("/auth/reset-password");
+    const isAuthRequest =
+      url.includes("/auth/login") ||
+      url.includes("/auth/register") ||
+      url.includes("/auth/forgot-password") ||
+      url.includes("/auth/reset-password");
 
-      if (!isAuthRequest) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-      }
+    if (status === 401 && !isAuthRequest) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
     }
 
     return Promise.reject(error);
@@ -54,12 +54,32 @@ export function getApiError(
   error,
   fallback = "Something went wrong. Please try again."
 ) {
-  if (error?.response?.data?.message) {
-    return error.response.data.message;
+  const status = error?.response?.status;
+  const data = error?.response?.data;
+
+  if (status === 401) {
+    return (
+      data?.message ||
+      "Your session has expired. Please log in again."
+    );
   }
 
-  if (error?.response?.data?.error) {
-    return error.response.data.error;
+  if (status === 403) {
+    return (
+      data?.message ||
+      "You are not authorized to perform this action."
+    );
+  }
+
+  if (status === 404) {
+    return data?.message || "Requested API endpoint was not found.";
+  }
+
+  if (status >= 500) {
+    return (
+      data?.message ||
+      "Backend server error. Please try again later."
+    );
   }
 
   if (error?.code === "ECONNABORTED") {
@@ -67,10 +87,15 @@ export function getApiError(
   }
 
   if (!error?.response && error?.request) {
-    return "Unable to connect to the server. Check that the backend is running.";
+    return "Cannot reach the backend. Check the backend URL, CORS settings, and network connection.";
   }
 
-  return error?.message || fallback;
+  return (
+    data?.message ||
+    data?.error ||
+    error?.message ||
+    fallback
+  );
 }
 
 export default api;

@@ -26,27 +26,37 @@ const settingsRoutes = require("./routes/settingsRoutes");
 // Security headers
 app.use(helmet());
 
-// CORS — must run before API routes
+// CORS configuration
+
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3001",
+  ...(process.env.CLIENT_URL || "")
+    .split(",")
+    .map((url) => url.trim().replace(/\/+$/, ""))
+    .filter(Boolean),
 ];
 
-if (process.env.CLIENT_URL) {
-  allowedOrigins.push(process.env.CLIENT_URL);
-}
 
+// CORS must run before API routes
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without Origin, such as PowerShell and curl.
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests without Origin, e.g. server-to-server requests.
+      if (!origin) {
         return callback(null, true);
       }
 
-      return callback(
-        new Error(`CORS blocked origin: ${origin}`)
-      );
+      const normalizedOrigin = origin.replace(/\/+$/, "");
+
+      if (allowedOrigins.includes(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      console.error(`CORS blocked origin: ${origin}`);
+      return callback(new Error(`CORS blocked origin: ${origin}`));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -78,7 +88,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Mount API routes after CORS
+// API routes
 app.use("/api/search", searchRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
@@ -100,7 +110,7 @@ app.use((req, res) => {
   });
 });
 
-// Global error handler — must be last
+// Global error handler must be last
 app.use(errorMiddleware);
 
 module.exports = app;

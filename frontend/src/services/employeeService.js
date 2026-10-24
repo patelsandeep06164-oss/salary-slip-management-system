@@ -1,295 +1,426 @@
-const STORAGE_KEY = "salarySlip_employees";
 
-function readEmployees() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const employees = saved ? JSON.parse(saved) : [];
+import api from "./api";
 
-    return Array.isArray(employees) ? employees : [];
-  } catch {
-    return [];
-  }
-}
+// Keep the department object intact so every page can access its ID and name.
+const normalizeEmployee = (raw = {}) => {
+  const salary =
+    raw.salary && typeof raw.salary === "object"
+      ? raw.salary
+      : {
+          basic: Number(raw.salary ?? raw.basicSalary ?? 0),
+        };
 
-function saveEmployees(employees) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(employees));
-}
+  const name =
+    raw.name ||
+    [raw.firstName, raw.lastName].filter(Boolean).join(" ").trim();
 
-function createId() {
-  return `emp_${Date.now()}_${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
-}
+  const department = raw.department ?? null;
 
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
-}
-
-function matchesSearch(employee, query) {
-  const searchText = String(query || "").trim().toLowerCase();
-
-  if (!searchText) return true;
-
-  const fields = [
-    employee.name,
-    employee.fullName,
-    employee.email,
-    employee.phone,
-    employee.employeeId,
-    employee.department,
-    employee.designation,
-  ];
-
-  return fields.some((value) =>
-    String(value || "").toLowerCase().includes(searchText)
+  // Prefer the backend salary object's basic value when available.
+  const basicSalary = Number(
+    salary.basic ?? salary.basicSalary ?? raw.basicSalary ?? 0
   );
-}
 
-function applyFilters(employees, params = {}) {
-  let result = [...employees];
+  return {
+    ...raw,
+    id: raw._id || raw.id || raw.employeeCode || raw.employeeId,
+    _id: raw._id || raw.id,
+    employeeId: raw.employeeCode || raw.employeeId || "",
+    employeeCode: raw.employeeCode || raw.employeeId || "",
+    name,
+    fullName: raw.fullName || name,
 
-  if (params.search) {
-    result = result.filter((employee) =>
-      matchesSearch(employee, params.search)
-    );
-  }
+    // Preserve both department._id and department.name.
+    department,
 
-  if (params.department) {
-    result = result.filter(
-      (employee) =>
-        String(employee.department || "").toLowerCase() ===
-        String(params.department).toLowerCase()
-    );
-  }
+    basicSalary,
+    allowances: Number(raw.allowances ?? salary.allowances ?? 0),
+    deductions: Number(raw.deductions ?? salary.deductions ?? 0),
+    salary: {
+      ...salary,
+      basic: basicSalary,
+    },
+    status: String(raw.status || "active").toLowerCase(),
+    employmentType: String(
+      raw.employmentType || "full-time"
+    ).toLowerCase(),
+  };
+};
 
-  if (params.status) {
-    result = result.filter(
-      (employee) =>
-        String(employee.status || "").toLowerCase() ===
-        String(params.status).toLowerCase()
-    );
-  }
+const getRows = (data) => {
+  const rows = Array.isArray(data)
+    ? data
+    : data?.employees ||
+      data?.data?.employees ||
+      [];
 
-  return result;
-}
+  return Array.isArray(rows) ? rows.map(normalizeEmployee) : [];
+};
 
-function getStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem("user") || "null");
-  } catch {
-    return null;
-  }
-}
-
-function findEmployeeForUser(user, employees) {
-  if (!user) return null;
-
-  return (
-    employees.find(
-      (employee) =>
-        user.employeeId &&
-        String(employee.employeeId) === String(user.employeeId)
-    ) ||
-    employees.find(
-      (employee) =>
-        user.id &&
-        String(employee.id) === String(user.id)
-    ) ||
-    employees.find(
-      (employee) =>
-        user._id &&
-        String(employee._id) === String(user._id)
-    ) ||
-    employees.find(
-      (employee) =>
-        user.email &&
-        normalizeEmail(employee.email) === normalizeEmail(user.email)
-    ) ||
-    null
+const unwrapEmployee = (data) =>
+  normalizeEmployee(
+    data?.employee ||
+      data?.data?.employee ||
+      data?.data ||
+      data
   );
-}
 
-const employeeService = {
-  // Get all employees with optional filters
-  async getAll(params = {}) {
-    return applyFilters(readEmployees(), params);
-  },
+const getDepartmentId = (department) => {
+  if (department && typeof department === "object") {
+    department = department._id || department.id || "";
+  }
 
-  // Get employee by ID
-  async getById(id) {
-    const employee = readEmployees().find(
-      (item) =>
-        String(item.id) === String(id) ||
-        String(item._id || "") === String(id)
-    );
+  const value = String(department || "").trim();
 
-    if (!employee) {
-      throw new Error("Employee not found.");
+  return /^[a-f\d]{24}$/i.test(value) ? value : null;
+};
+
+const toApiPayload = (input = {}) => {
+  const fullName = String(
+    input.name ||
+      [input.firstName, input.lastName].filter(Boolean).join(" ")
+  ).trim();
+
+  const nameParts = fullName.split(/\s+/).filter(Boolean);
+
+  const salary =
+    input.salary && typeof input.salary === "object"
+      ? input.salary
+      : {};
+
+  // Prefer the updated salary object over any stale top-level basicSalary.
+  const basicValue =
+    salary.basic ??
+    salary.basicSalary ??
+    input.basicSalary ??
+    (typeof input.salary === "number" ? input.salary : 0);
+
+  const basic = Number(basicValue);
+
+  const payload = {
+    employeeCode: String(
+      input.employeeCode || input.employeeId || ""
+    ).trim(),
+
+    firstName: String(
+      input.firstName || nameParts[0] || ""
+    ).trim(),
+
+    lastName: String(
+      input.lastName || nameParts.slice(1).join(" ")
+    ).trim(),
+
+    email: String(input.email || "").trim().toLowerCase(),
+    phone: String(input.phone || "").trim(),
+    pan: String(input.pan || "").trim().toUpperCase(),
+    designation: String(input.designation || "Employee").trim(),
+
+    joiningDate:
+      input.joiningDate || new Date().toISOString().slice(0, 10),
+
+    employmentType: String(
+      input.employmentType || "full-time"
+    )
+      .toLowerCase()
+      .replace(/\s+/g, "-"),
+
+    status: String(input.status || "active").toLowerCase(),
+
+    salary: {
+      currency: salary.currency || "INR",
+      basic: Number.isFinite(basic) ? basic : 0,
+      hra: Number(input.hra ?? salary.hra ?? 0),
+      allowances: Number(
+        input.allowances ?? salary.allowances ?? 0
+      ),
+      deductions: Number(
+        input.deductions ?? salary.deductions ?? 0
+      ),
+    },
+  };
+
+  // Preserve a valid department ID. Explicit null clears the department.
+  if (Object.prototype.hasOwnProperty.call(input, "department")) {
+    if (
+      input.department === null ||
+      input.department === ""
+    ) {
+      payload.department = null;
+    } else {
+      const departmentId = getDepartmentId(input.department);
+
+      if (departmentId) {
+        payload.department = departmentId;
+      } else {
+        throw new Error(
+          "Invalid department. Please select a department from the list."
+        );
+      }
+    }
+  }
+
+  if (input.address && typeof input.address === "object") {
+    payload.address = input.address;
+  } else if (input.address) {
+    payload.address = {
+      street: String(input.address),
+      country: "India",
+    };
+  }
+
+  return payload;
+};
+
+// Builds a payload containing only the fields supplied by the caller.
+const toPartialPayload = (input = {}) => {
+  const payload = {};
+  const has = (key) =>
+    Object.prototype.hasOwnProperty.call(input, key);
+
+  if (has("employeeCode") || has("employeeId")) {
+    payload.employeeCode = String(
+      input.employeeCode ?? input.employeeId ?? ""
+    ).trim();
+  }
+
+  if (has("name") || has("firstName") || has("lastName")) {
+    const fullName = String(
+      input.name ||
+        [input.firstName, input.lastName].filter(Boolean).join(" ")
+    ).trim();
+
+    const parts = fullName.split(/\s+/).filter(Boolean);
+
+    if (has("firstName") || has("name")) {
+      payload.firstName = String(
+        input.firstName || parts[0] || ""
+      ).trim();
     }
 
-    return employee;
-  },
+    if (has("lastName") || has("name")) {
+      payload.lastName = String(
+        input.lastName || parts.slice(1).join(" ")
+      ).trim();
+    }
+  }
 
-  // Create employee
-  async create(employeeData) {
-    const employees = readEmployees();
-    const email = normalizeEmail(employeeData.email);
+  if (has("email")) {
+    payload.email = String(input.email || "")
+      .trim()
+      .toLowerCase();
+  }
+
+  if (has("phone")) {
+    payload.phone = String(input.phone || "").trim();
+  }
+
+  if (has("pan")) {
+    payload.pan = String(input.pan || "").trim().toUpperCase();
+  }
+
+  if (has("designation")) {
+    payload.designation = String(input.designation || "").trim();
+  }
+
+  if (has("joiningDate")) {
+    payload.joiningDate = input.joiningDate;
+  }
+
+  if (has("employmentType")) {
+    payload.employmentType = String(input.employmentType || "")
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+  }
+
+  if (has("status")) {
+    payload.status = String(input.status || "").toLowerCase();
+  }
+
+  if (has("department")) {
+    if (input.department === null || input.department === "") {
+      payload.department = null;
+    } else {
+      const departmentId = getDepartmentId(input.department);
+
+      if (!departmentId) {
+        throw new Error(
+          "Invalid department. Please select a department from the list."
+        );
+      }
+
+      payload.department = departmentId;
+    }
+  }
+
+  if (
+    has("salary") ||
+    has("basicSalary") ||
+    has("hra") ||
+    has("allowances") ||
+    has("deductions")
+  ) {
+    const salary =
+      input.salary && typeof input.salary === "object"
+        ? input.salary
+        : {};
+
+    const result = {};
 
     if (
-      email &&
-      employees.some(
-        (employee) => normalizeEmail(employee.email) === email
-      )
+      has("salary") ||
+      has("basicSalary") ||
+      Object.prototype.hasOwnProperty.call(salary, "basic")
     ) {
-      throw new Error(
-        "An employee with this email already exists."
+      const basicValue =
+        salary.basic ??
+        salary.basicSalary ??
+        input.basicSalary ??
+        (typeof input.salary === "number" ? input.salary : 0);
+
+      result.basic = Number(basicValue);
+    }
+
+    if (
+      has("salary") ||
+      has("hra") ||
+      Object.prototype.hasOwnProperty.call(salary, "hra")
+    ) {
+      result.hra = Number(input.hra ?? salary.hra ?? 0);
+    }
+
+    if (
+      has("salary") ||
+      has("allowances") ||
+      Object.prototype.hasOwnProperty.call(salary, "allowances")
+    ) {
+      result.allowances = Number(
+        input.allowances ?? salary.allowances ?? 0
       );
     }
 
-    const now = new Date().toISOString();
-
-    const employee = {
-      ...employeeData,
-      id: employeeData.id || createId(),
-      email,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    employees.push(employee);
-    saveEmployees(employees);
-
-    return employee;
-  },
-
-  // Update existing employee
-  async update(id, employeeData) {
-    const employees = readEmployees();
-
-    const index = employees.findIndex(
-      (item) =>
-        String(item.id) === String(id) ||
-        String(item._id || "") === String(id)
-    );
-
-    if (index === -1) {
-      throw new Error("Employee not found.");
-    }
-
-    const existingEmployee = employees[index];
-
-    const email = normalizeEmail(
-      employeeData.email ?? existingEmployee.email
-    );
-
-    const duplicate = employees.some(
-      (employee, employeeIndex) =>
-        employeeIndex !== index &&
-        email &&
-        normalizeEmail(employee.email) === email
-    );
-
-    if (duplicate) {
-      throw new Error(
-        "An employee with this email already exists."
+    if (
+      has("salary") ||
+      has("deductions") ||
+      Object.prototype.hasOwnProperty.call(salary, "deductions")
+    ) {
+      result.deductions = Number(
+        input.deductions ?? salary.deductions ?? 0
       );
     }
 
-    employees[index] = {
-      ...existingEmployee,
-      ...employeeData,
-      id: existingEmployee.id,
-      email,
-      updatedAt: new Date().toISOString(),
-    };
-
-    saveEmployees(employees);
-
-    return employees[index];
-  },
-
-  // Partially update employee
-  async updatePartial(id, employeeData) {
-    return this.update(id, employeeData);
-  },
-
-  // Delete employee
-  async delete(id) {
-    const employees = readEmployees();
-
-    const exists = employees.some(
-      (item) =>
-        String(item.id) === String(id) ||
-        String(item._id || "") === String(id)
-    );
-
-    if (!exists) {
-      throw new Error("Employee not found.");
+    if (salary.currency) {
+      result.currency = salary.currency;
     }
 
-    const updatedEmployees = employees.filter(
-      (item) =>
-        String(item.id) !== String(id) &&
-        String(item._id || "") !== String(id)
-    );
+    payload.salary = result;
+  }
 
-    saveEmployees(updatedEmployees);
+  if (has("address")) {
+    if (input.address && typeof input.address === "object") {
+      payload.address = input.address;
+    } else if (input.address) {
+      payload.address = {
+        street: String(input.address),
+        country: "India",
+      };
+    } else {
+      payload.address = input.address;
+    }
+  }
+
+  return payload;
+};
+
+const employeeService = {
+  async getAll(params = {}) {
+    const response = await api.get("/employees", {
+      params: { limit: 100, ...params },
+    });
 
     return {
-      success: true,
-      message: "Employee deleted successfully.",
-      id,
+      ...response.data,
+      employees: getRows(response.data),
     };
   },
 
-  // Search employees
+  async getById(id) {
+    const response = await api.get(
+      `/employees/${encodeURIComponent(id)}`
+    );
+
+    return unwrapEmployee(response.data);
+  },
+
+  async create(employeeData) {
+    const response = await api.post(
+      "/employees",
+      toApiPayload(employeeData)
+    );
+
+    return unwrapEmployee(response.data);
+  },
+
+  async update(id, employeeData) {
+    const response = await api.patch(
+      `/employees/${encodeURIComponent(id)}`,
+      toApiPayload(employeeData)
+    );
+
+    return unwrapEmployee(response.data);
+  },
+
+  async updatePartial(id, employeeData) {
+    const response = await api.patch(
+      `/employees/${encodeURIComponent(id)}`,
+      toPartialPayload(employeeData)
+    );
+
+    return unwrapEmployee(response.data);
+  },
+
+  async delete(id) {
+    const response = await api.delete(
+      `/employees/${encodeURIComponent(id)}`
+    );
+
+    return response.data;
+  },
+
   async search(query, params = {}) {
-    return applyFilters(readEmployees(), {
-      ...params,
-      search: query,
+    const response = await api.get("/employees", {
+      params: { ...params, search: query },
     });
+
+    return getRows(response.data);
   },
 
-  // Get logged-in employee profile
   async getMyProfile() {
-    const user = getStoredUser();
+    const response = await api.get("/auth/me");
 
-    if (!user) {
-      throw new Error("Please sign in to view your profile.");
-    }
-
-    const employees = readEmployees();
-    const employee = findEmployeeForUser(user, employees);
-
-    if (!employee) {
-      throw new Error("Employee profile not found.");
-    }
-
-    return employee;
+    return (
+      response.data?.employee ||
+      response.data?.user ||
+      response.data?.data?.employee ||
+      response.data?.data?.user ||
+      response.data
+    );
   },
 
-  // Update logged-in employee profile
   async updateMyProfile(profileData) {
-    const profile = await this.getMyProfile();
+    const response = await api.patch(
+      "/auth/profile",
+      profileData
+    );
 
-    // Prevent changes to identifiers, role and administrative status.
-    const {
-      id,
-      _id,
-      employeeId,
-      role,
-      status,
-      createdAt,
-      updatedAt,
-      ...allowedProfileData
-    } = profileData;
-
-    return this.update(profile.id, allowedProfileData);
+    return (
+      response.data?.user ||
+      response.data?.data?.user ||
+      response.data
+    );
   },
 
-  // Update employee status
   async updateStatus(id, status) {
-    return this.update(id, { status });
+    return this.updatePartial(id, { status });
   },
 };
 

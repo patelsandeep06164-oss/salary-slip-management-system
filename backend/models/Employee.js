@@ -66,11 +66,31 @@ const employeeSchema = new mongoose.Schema(
     },
 
     address: {
-      street: { type: String, trim: true, default: "" },
-      city: { type: String, trim: true, default: "" },
-      state: { type: String, trim: true, default: "" },
-      postalCode: { type: String, trim: true, default: "" },
-      country: { type: String, trim: true, default: "India" },
+      street: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      city: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      state: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      postalCode: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      country: {
+        type: String,
+        trim: true,
+        default: "India",
+      },
     },
 
     department: {
@@ -184,8 +204,7 @@ const employeeSchema = new mongoose.Schema(
 // Employee listing filters.
 employeeSchema.index({ department: 1, status: 1 });
 
-// Only real User ObjectIds must be unique.
-// Documents with user missing or user: null are excluded.
+// Only actual User ObjectIds must be unique.
 employeeSchema.index(
   { user: 1 },
   {

@@ -1,17 +1,19 @@
 import api from "./api";
 
 const departmentService = {
-  // Get all departments
+  // Get departments from MongoDB backend
   async getAll(params = {}) {
     const response = await api.get("/departments", { params });
+
     return response.data;
   },
 
-  // Get department by ID
+  // Get one department
   async getById(id) {
     const response = await api.get(
       `/departments/${encodeURIComponent(id)}`
     );
+
     return response.data;
   },
 
@@ -21,6 +23,7 @@ const departmentService = {
       "/departments",
       departmentData
     );
+
     return response.data;
   },
 
@@ -30,23 +33,26 @@ const departmentService = {
       `/departments/${encodeURIComponent(id)}`,
       departmentData
     );
+
     return response.data;
   },
 
-  // Delete department
-  async delete(id) {
-    const response = await api.delete(
-      `/departments/${encodeURIComponent(id)}`
+  // Deactivate department using existing backend route
+  async deactivate(id) {
+    const response = await api.patch(
+      `/departments/${encodeURIComponent(id)}/deactivate`
     );
+
     return response.data;
   },
 
-  // Get employees belonging to a department
-  async getEmployees(id, params = {}) {
-    const response = await api.get(
-      `/departments/${encodeURIComponent(id)}/employees`,
-      { params }
+  // Reactivate department
+  async reactivate(id) {
+    const response = await api.put(
+      `/departments/${encodeURIComponent(id)}`,
+      { isActive: true }
     );
+
     return response.data;
   },
 };

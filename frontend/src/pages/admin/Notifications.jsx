@@ -18,7 +18,7 @@ import {
 } from "react-icons/fa";
 
 const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  process.env.REACT_APP_API_URL || "https://salary-slip-backend-rjgj.onrender.com/api";
 
 const CATEGORY_OPTIONS = [
   { value: "all", label: "All notifications" },
@@ -83,7 +83,7 @@ function Notifications() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
+  const [page] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,

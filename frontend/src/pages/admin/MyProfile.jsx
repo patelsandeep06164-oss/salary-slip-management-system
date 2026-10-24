@@ -92,7 +92,7 @@ const compressImage = (file) =>
       const maxDimension = 600;
       const scale = Math.min(
         1,
-        maxDimension / Math.max(image.width, image.height)
+        maxDimension / Math.max(image.width, image.height),
       );
 
       const canvas = document.createElement("canvas");
@@ -126,7 +126,7 @@ const compressImage = (file) =>
           reader.readAsDataURL(blob);
         },
         "image/jpeg",
-        0.72
+        0.72,
       );
     };
 
@@ -143,7 +143,7 @@ function MyProfile() {
   const [profile, setProfile] = useState(initialProfile);
   const [form, setForm] = useState({
     name: "",
-    email:"",
+    email: "",
     phone: "",
     address: "",
   });
@@ -175,7 +175,9 @@ function MyProfile() {
         const user = data.user || data.data?.user;
 
         if (!user) {
-          throw new Error("Profile information was not returned by the server.");
+          throw new Error(
+            "Profile information was not returned by the server.",
+          );
         }
 
         if (!mounted) return;
@@ -191,7 +193,7 @@ function MyProfile() {
       } catch (err) {
         if (mounted) {
           setError(
-            getApiError(err, "Unable to load your profile. Please try again.")
+            getApiError(err, "Unable to load your profile. Please try again."),
           );
         }
       } finally {
@@ -291,7 +293,7 @@ function MyProfile() {
 
       if (!updatedUser) {
         throw new Error(
-          "The server did not return the updated profile. Please check your backend response."
+          "The server did not return the updated profile. Please check your backend response.",
         );
       }
 
@@ -308,18 +310,18 @@ function MyProfile() {
       const storedUser = authService.getStoredUser() || {};
       localStorage.setItem(
         "user",
-        JSON.stringify({ ...storedUser, ...updatedUser })
+        JSON.stringify({ ...storedUser, ...updatedUser }),
       );
 
       window.dispatchEvent(
-        new CustomEvent("profile-updated", { detail: updatedUser })
+        new CustomEvent("profile-updated", { detail: updatedUser }),
       );
 
       setEditing(false);
       setSuccess("Your profile has been updated successfully.");
     } catch (err) {
       setError(
-        getApiError(err, "Unable to save your profile. Please try again.")
+        getApiError(err, "Unable to save your profile. Please try again."),
       );
     } finally {
       setSaving(false);
@@ -348,7 +350,9 @@ function MyProfile() {
     }
 
     if (currentPassword === newPassword) {
-      setError("Your new password must be different from your current password.");
+      setError(
+        "Your new password must be different from your current password.",
+      );
       return;
     }
 
@@ -369,7 +373,7 @@ function MyProfile() {
       setSuccess("Your password has been changed successfully.");
     } catch (err) {
       setError(
-        getApiError(err, "Unable to change your password. Please try again.")
+        getApiError(err, "Unable to change your password. Please try again."),
       );
     } finally {
       setPasswordSaving(false);
@@ -381,16 +385,19 @@ function MyProfile() {
 
     setForm({
       name: profile.name || "",
+      email: profile.email || "",
       phone: profile.phone || "",
       address: profile.address || "",
     });
 
+    setActiveTab("personal");
     setEditing(true);
   };
 
   const cancelEditing = () => {
     setForm({
       name: profile.name || "",
+      email: profile.email || "",
       phone: profile.phone || "",
       address: profile.address || "",
     });
@@ -503,11 +510,7 @@ function MyProfile() {
         </div>
 
         <div className="mp-info-grid">
-          <InfoItem
-            icon={<FaUser />}
-            label="Full Name"
-            value={profile.name}
-          />
+          <InfoItem icon={<FaUser />} label="Full Name" value={profile.name} />
           <InfoItem
             icon={<FaEnvelope />}
             label="Email Address"
@@ -532,9 +535,7 @@ function MyProfile() {
         </div>
         <div className="mp-security-copy">
           <h3>Keep your account secure</h3>
-          <p>
-            Review your account details and update your password regularly.
-          </p>
+          <p>Review your account details and update your password regularly.</p>
         </div>
         <button
           type="button"
@@ -575,7 +576,10 @@ function MyProfile() {
             <Avatar size="medium" />
             <div>
               <strong>Profile photo</strong>
-              <p>JPG, PNG or another supported image. Maximum 5 MB before compression.</p>
+              <p>
+                JPG, PNG or another supported image. Maximum 5 MB before
+                compression.
+              </p>
               <button
                 type="button"
                 className="mp-text-button"
@@ -798,8 +802,7 @@ function MyProfile() {
               className="mp-primary-button"
               disabled={passwordSaving}
             >
-              <FaLock />{" "}
-              {passwordSaving ? "Updating..." : "Update Password"}
+              <FaLock /> {passwordSaving ? "Updating..." : "Update Password"}
             </button>
           </div>
         </form>
@@ -2049,9 +2052,7 @@ function MyProfile() {
             </div>
           </aside>
 
-          <main className="mp-main-panel">
-            {pageContent[activeTab]()}
-          </main>
+          <main className="mp-main-panel">{pageContent[activeTab]()}</main>
         </div>
       )}
     </div>
@@ -2059,7 +2060,8 @@ function MyProfile() {
 }
 
 function InfoItem({ icon, label, value }) {
-  const hasValue = value !== undefined && value !== null && String(value).trim();
+  const hasValue =
+    value !== undefined && value !== null && String(value).trim();
 
   return (
     <div className="mp-info-item">

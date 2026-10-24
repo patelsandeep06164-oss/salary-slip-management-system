@@ -20,48 +20,23 @@ import {
 import employeeService from "../../services/employeeService";
 import departmentService from "../../services/departmentService";
 
-const DEFAULT_DEPARTMENTS = [
-  "IT & Software Development",
-  "Frontend Development",
-  "Backend Development",
-  "Full Stack Development",
-  "Mobile App Development",
-  "UI/UX Design",
-  "QA & Testing",
-  "DevOps & Cloud",
-  "Cybersecurity",
-  "Database Administration",
-  "Data Science & Analytics",
-  "AI/ML",
-  "HR & Recruitment",
-  "Finance & Accounts",
-  "Sales & Marketing",
-  "Business Development",
-  "Project Management",
-  "Customer Support",
-  "Administration",
-];
-
 const styles = `
 .employee-form-page,
 .employee-form-page * {
   box-sizing: border-box;
 }
-
 .employee-form-page {
   width: 100%;
   min-width: 0;
   color: #1e293b;
   font-family: Arial, Helvetica, sans-serif;
 }
-
 .ef-header {
   display: flex;
   align-items: center;
   gap: 14px;
   margin-bottom: 24px;
 }
-
 .ef-back {
   width: 43px;
   height: 43px;
@@ -76,14 +51,12 @@ const styles = `
   text-decoration: none;
   transition: all 0.2s ease;
 }
-
 .ef-back:hover {
   color: #ffffff;
   background: #0284c7;
   border-color: #0284c7;
   transform: translateX(-2px);
 }
-
 .ef-header h1 {
   margin: 0 0 6px;
   color: #0f172a;
@@ -91,14 +64,12 @@ const styles = `
   font-weight: 800;
   letter-spacing: -0.7px;
 }
-
 .ef-header p {
   margin: 0;
   color: #64748b;
   font-size: 13px;
   line-height: 1.6;
 }
-
 .ef-card {
   width: 100%;
   padding: 27px;
@@ -107,7 +78,6 @@ const styles = `
   border-radius: 17px;
   box-shadow: 0 8px 28px rgba(15, 23, 42, 0.045);
 }
-
 .ef-section-title {
   display: flex;
   align-items: center;
@@ -119,7 +89,6 @@ const styles = `
   font-size: 16px;
   font-weight: 750;
 }
-
 .ef-section-icon {
   width: 35px;
   height: 35px;
@@ -131,20 +100,17 @@ const styles = `
   background: #e0f7ff;
   border-radius: 10px;
 }
-
 .ef-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px 22px;
 }
-
 .ef-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 0;
 }
-
 .ef-field label {
   display: flex;
   align-items: center;
@@ -153,13 +119,11 @@ const styles = `
   font-size: 12px;
   font-weight: 700;
 }
-
 .ef-field-icon {
   margin-right: 3px;
   color: #0284c7;
   font-size: 12px;
 }
-
 .ef-field input,
 .ef-field select {
   width: 100%;
@@ -175,34 +139,28 @@ const styles = `
   font-size: 13px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
 .ef-field input::placeholder {
   color: #94a3b8;
 }
-
 .ef-field input:focus,
 .ef-field select:focus {
   border-color: #06a5d8;
   box-shadow: 0 0 0 3px rgba(6, 165, 216, 0.12);
 }
-
 .ef-field input:disabled,
 .ef-field select:disabled {
   cursor: not-allowed;
   opacity: 0.65;
   background: #f8fafc;
 }
-
 .ef-required {
   color: #dc2626;
 }
-
 .ef-hint {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 11px;
   line-height: 1.5;
 }
-
 .ef-notice {
   display: flex;
   align-items: flex-start;
@@ -215,24 +173,20 @@ const styles = `
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
-
 .ef-notice svg {
   flex-shrink: 0;
   margin-top: 2px;
 }
-
 .ef-error {
   color: #b91c1c;
   background: #fef2f2;
   border-color: #fecaca;
 }
-
 .ef-success {
   color: #166534;
   background: #f0fdf4;
   border-color: #bbf7d0;
 }
-
 .ef-actions {
   display: flex;
   justify-content: flex-end;
@@ -242,7 +196,6 @@ const styles = `
   padding-top: 22px;
   border-top: 1px solid #edf2f7;
 }
-
 .ef-btn {
   min-height: 43px;
   display: inline-flex;
@@ -261,35 +214,29 @@ const styles = `
   cursor: pointer;
   transition: all 0.2s ease;
 }
-
 .ef-btn:hover:not(:disabled) {
   background: #f8fafc;
   border-color: #94a3b8;
 }
-
 .ef-btn.primary {
   color: #ffffff;
   background: linear-gradient(135deg, #0891b2, #2563eb);
   border-color: transparent;
   box-shadow: 0 5px 13px rgba(37, 99, 235, 0.17);
 }
-
 .ef-btn.primary:hover:not(:disabled) {
   box-shadow: 0 7px 18px rgba(37, 99, 235, 0.25);
   transform: translateY(-1px);
 }
-
 .ef-btn:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
-
 .ef-btn:focus-visible,
 .ef-back:focus-visible {
   outline: 3px solid rgba(14, 165, 233, 0.35);
   outline-offset: 3px;
 }
-
 .ef-spinner {
   width: 15px;
   height: 15px;
@@ -298,73 +245,35 @@ const styles = `
   border-radius: 50%;
   animation: ef-spin 0.7s linear infinite;
 }
-
 @keyframes ef-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
-
 @media (max-width: 700px) {
-  .ef-card {
-    padding: 20px;
-  }
-
-  .ef-grid {
-    gap: 17px;
-  }
+  .ef-card { padding: 20px; }
+  .ef-grid { gap: 17px; }
 }
-
 @media (max-width: 520px) {
-  .ef-header {
-    gap: 11px;
-    margin-bottom: 18px;
-  }
-
-  .ef-back {
-    width: 39px;
-    height: 39px;
-  }
-
-  .ef-header h1 {
-    font-size: 22px;
-  }
-
-  .ef-header p {
-    font-size: 12px;
-  }
-
-  .ef-card {
-    padding: 16px;
-    border-radius: 13px;
-  }
-
+  .ef-header { gap: 11px; margin-bottom: 18px; }
+  .ef-back { width: 39px; height: 39px; }
+  .ef-header h1 { font-size: 22px; }
+  .ef-header p { font-size: 12px; }
+  .ef-card { padding: 16px; border-radius: 13px; }
   .ef-section-title {
     align-items: flex-start;
     font-size: 14px;
     line-height: 1.5;
   }
-
-  .ef-section-icon {
-    width: 31px;
-    height: 31px;
-  }
-
+  .ef-section-icon { width: 31px; height: 31px; }
   .ef-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
   }
-
   .ef-actions {
     flex-direction: column-reverse;
     gap: 10px;
   }
-
-  .ef-btn {
-    width: 100%;
-  }
+  .ef-btn { width: 100%; }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .employee-form-page *,
   .employee-form-page *::before,
@@ -387,47 +296,65 @@ const emptyForm = {
   status: "Active",
 };
 
-function readDepartments() {
-  try {
-    const stored = localStorage.getItem("department_records");
-    const parsed = stored ? JSON.parse(stored) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+function normalizeDepartments(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.departments)) return response.departments;
+  if (Array.isArray(response?.data?.departments)) {
+    return response.data.departments;
   }
+  if (Array.isArray(response?.data)) return response.data;
+  return [];
 }
 
 function getDepartmentName(department) {
-  if (typeof department === "string") return department;
+  if (typeof department === "string") return department.trim();
 
   if (department && typeof department === "object") {
-    return department.name || department.departmentName || "";
+    return String(
+      department.name || department.departmentName || department.code || ""
+    ).trim();
   }
 
   return "";
 }
 
-function normalizeDepartments(response) {
-  if (Array.isArray(response)) return response;
-  if (Array.isArray(response?.departments)) return response.departments;
-  if (Array.isArray(response?.data)) return response.data;
-  if (Array.isArray(response?.data?.departments)) {
-    return response.data.departments;
-  }
+function getDepartmentId(department) {
+  if (!department || typeof department !== "object") return "";
 
-  return [];
+  const id = department._id || department.id || "";
+
+  return /^[a-f\d]{24}$/i.test(String(id)) ? String(id) : "";
+}
+
+function splitFullName(fullName) {
+  const parts = String(fullName || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return {
+    firstName: parts[0] || "",
+    lastName: parts.slice(1).join(" "),
+  };
 }
 
 function getErrorMessage(error) {
-  if (typeof error === "string" && error.trim()) {
-    return error;
-  }
-
   return (
     error?.response?.data?.message ||
+    error?.response?.data?.error ||
     error?.message ||
     "Unable to save employee. Please try again."
   );
+}
+
+function getEmployeeArray(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.employees)) return response.employees;
+  if (Array.isArray(response?.data?.employees)) {
+    return response.data.employees;
+  }
+  if (Array.isArray(response?.data)) return response.data;
+  return [];
 }
 
 export default function AddEmployee() {
@@ -435,6 +362,7 @@ export default function AddEmployee() {
   const [error, setError] = useState("");
   const [departments, setDepartments] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
 
   const navigate = useNavigate();
 
@@ -442,37 +370,31 @@ export default function AddEmployee() {
     let isMounted = true;
 
     async function loadDepartments() {
+      setLoadingDepartments(true);
+
       try {
         const response = await departmentService.getAll();
-        const records = normalizeDepartments(response);
-
-        const names = records
-          .map(getDepartmentName)
-          .map((name) => name.trim())
-          .filter(Boolean);
-
-        if (isMounted) {
-          setDepartments(
-            names.length > 0
-              ? [...new Set(names)]
-              : DEFAULT_DEPARTMENTS
-          );
-        }
-      } catch {
-        const savedDepartments = readDepartments();
-
-        const savedNames = savedDepartments
-          .map(getDepartmentName)
-          .map((name) => name.trim())
-          .filter(Boolean);
+        const records = normalizeDepartments(response).filter(
+          (department) =>
+            department &&
+            getDepartmentId(department) &&
+            department.isActive !== false
+        );
 
         if (isMounted) {
-          setDepartments(
-            savedNames.length > 0
-              ? [...new Set(savedNames)]
-              : DEFAULT_DEPARTMENTS
+          setDepartments(records);
+        }
+      } catch (loadError) {
+        console.error("Unable to load departments:", loadError);
+
+        if (isMounted) {
+          setDepartments([]);
+          setError(
+            "Departments could not be loaded. Please check the department API before adding an employee."
           );
         }
+      } finally {
+        if (isMounted) setLoadingDepartments(false);
       }
     }
 
@@ -491,9 +413,7 @@ export default function AddEmployee() {
       [name]: value,
     }));
 
-    if (error) {
-      setError("");
-    }
+    if (error) setError("");
   }
 
   async function handleSubmit(event) {
@@ -505,10 +425,24 @@ export default function AddEmployee() {
 
     const name = form.name.trim();
     const email = form.email.trim().toLowerCase();
-    const employeeId = form.employeeId.trim();
+    const employeeCode = form.employeeId.trim();
+    const { firstName, lastName } = splitFullName(name);
 
-    if (!name || !email || !employeeId) {
-      setError("Please fill in employee name, email and employee ID.");
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !employeeCode ||
+      !form.joiningDate
+    ) {
+      setError(
+        "Please enter first and last name, email, employee ID and joining date."
+      );
+      return;
+    }
+
+    if (!form.designation.trim()) {
+      setError("Please enter employee designation.");
       return;
     }
 
@@ -532,25 +466,27 @@ export default function AddEmployee() {
       return;
     }
 
-    const normalizedEmployeeId = employeeId.toLowerCase();
+    // Only real Department records with MongoDB IDs can be assigned.
+    const selectedDepartment = departments.find(
+      (department) => getDepartmentId(department) === form.department
+    );
+
+    if (form.department && !selectedDepartment) {
+      setError("Please select a valid department from the department list.");
+      return;
+    }
 
     setSaving(true);
 
     try {
       const existingResult = await employeeService.getAll();
-
-      const existingEmployees = Array.isArray(existingResult)
-        ? existingResult
-        : Array.isArray(existingResult?.data)
-        ? existingResult.data
-        : Array.isArray(existingResult?.employees)
-        ? existingResult.employees
-        : Array.isArray(existingResult?.data?.employees)
-        ? existingResult.data.employees
-        : [];
+      const existingEmployees = getEmployeeArray(existingResult);
+      const normalizedCode = employeeCode.toLowerCase();
 
       const duplicate = existingEmployees.some((employee) => {
-        const existingId = String(employee.employeeId || "")
+        const existingCode = String(
+          employee.employeeCode || employee.employeeId || ""
+        )
           .trim()
           .toLowerCase();
 
@@ -558,10 +494,7 @@ export default function AddEmployee() {
           .trim()
           .toLowerCase();
 
-        return (
-          existingId === normalizedEmployeeId ||
-          existingEmail === email
-        );
+        return existingCode === normalizedCode || existingEmail === email;
       });
 
       if (duplicate) {
@@ -570,17 +503,27 @@ export default function AddEmployee() {
       }
 
       const newEmployee = {
-        ...form,
-        name,
+        employeeCode,
+        firstName,
+        lastName,
         email,
-        employeeId,
         phone: form.phone.trim(),
-        department: form.department.trim(),
+
+        // Send MongoDB department ID, never the department name.
+        department: selectedDepartment
+          ? getDepartmentId(selectedDepartment)
+          : null,
+
         designation: form.designation.trim(),
-        joiningDate: form.joiningDate || "",
-        salary,
-        status: form.status,
-        createdAt: new Date().toISOString(),
+        joiningDate: form.joiningDate,
+        salary: {
+          currency: "INR",
+          basic: salary,
+          hra: 0,
+          allowances: 0,
+          deductions: 0,
+        },
+        status: form.status.toLowerCase(),
       };
 
       await employeeService.create(newEmployee);
@@ -715,33 +658,40 @@ export default function AddEmployee() {
               name="department"
               value={form.department}
               onChange={updateField}
-              disabled={saving}
+              disabled={saving || loadingDepartments}
             >
-              <option value="">Select department</option>
-              {departments.map((department, index) => {
+              <option value="">
+                {loadingDepartments
+                  ? "Loading departments..."
+                  : "Select department"}
+              </option>
+
+              {departments.map((department) => {
+                const departmentId = getDepartmentId(department);
                 const departmentName = getDepartmentName(department);
 
-                if (!departmentName) return null;
-
                 return (
-                  <option
-                    key={`${departmentName}-${index}`}
-                    value={departmentName}
-                  >
+                  <option key={departmentId} value={departmentId}>
                     {departmentName}
+                    {department.code ? ` (${department.code})` : ""}
                   </option>
                 );
               })}
             </select>
+
             <span className="ef-hint">
-              Select the employee's department.
+              {loadingDepartments
+                ? "Loading saved department records."
+                : departments.length
+                  ? "Select a department from the saved department records."
+                  : "No departments were returned by the API. Add a department first."}
             </span>
           </div>
 
           <div className="ef-field">
             <label htmlFor="employee-designation">
               <FaBriefcase className="ef-field-icon" />
-              Designation
+              Designation <span className="ef-required">*</span>
             </label>
             <input
               id="employee-designation"
@@ -751,6 +701,7 @@ export default function AddEmployee() {
               onChange={updateField}
               placeholder="e.g. Frontend Developer"
               maxLength={100}
+              required
               disabled={saving}
             />
           </div>
@@ -758,7 +709,7 @@ export default function AddEmployee() {
           <div className="ef-field">
             <label htmlFor="employee-joining-date">
               <FaCalendarAlt className="ef-field-icon" />
-              Joining Date
+              Joining Date <span className="ef-required">*</span>
             </label>
             <input
               id="employee-joining-date"
@@ -766,6 +717,7 @@ export default function AddEmployee() {
               type="date"
               value={form.joiningDate}
               onChange={updateField}
+              required
               disabled={saving}
             />
           </div>
@@ -822,7 +774,11 @@ export default function AddEmployee() {
             Cancel
           </Link>
 
-          <button className="ef-btn primary" type="submit" disabled={saving}>
+          <button
+            className="ef-btn primary"
+            type="submit"
+            disabled={saving || loadingDepartments}
+          >
             {saving ? (
               <>
                 <span className="ef-spinner" aria-hidden="true" />
