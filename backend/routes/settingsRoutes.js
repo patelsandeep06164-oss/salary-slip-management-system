@@ -10,7 +10,7 @@ router.use(authMiddleware);
 
 router.get(
   "/",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
   settingsController.getSettings
 );
 

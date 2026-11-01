@@ -1,5 +1,9 @@
+
 const Attendance = require("../models/Attendance");
 const Employee = require("../models/Employee");
+
+const INDIA_TIME_ZONE = "Asia/Kolkata";
+const INDIA_OFFSET_MINUTES = 330;
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -7,18 +11,60 @@ const createError = (message, statusCode = 400) => {
   return error;
 };
 
-const getDayRange = (dateValue = new Date()) => {
+// Get YYYY-MM-DD according to India calendar date.
+const getIndiaDateString = (dateValue = new Date()) => {
+  // Date-only values must not be parsed as UTC and shifted.
+  if (
+    typeof dateValue === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(dateValue)
+  ) {
+    const [year, month, day] = dateValue.split("-").map(Number);
+    const check = new Date(Date.UTC(year, month - 1, day));
+
+    if (
+      check.getUTCFullYear() !== year ||
+      check.getUTCMonth() + 1 !== month ||
+      check.getUTCDate() !== day
+    ) {
+      throw createError("Invalid attendance date.");
+    }
+
+    return dateValue;
+  }
+
   const date = new Date(dateValue);
 
   if (Number.isNaN(date.getTime())) {
     throw createError("Invalid attendance date.");
   }
 
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: INDIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
 
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+  const values = {};
+  for (const part of parts) {
+    if (part.type !== "literal") values[part.type] = part.value;
+  }
+
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+// Convert India midnight to the corresponding UTC instant.
+// India has no daylight-saving time.
+const getDayRange = (dateValue = new Date()) => {
+  const dateString = getIndiaDateString(dateValue);
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  const start = new Date(
+    Date.UTC(year, month - 1, day) -
+      INDIA_OFFSET_MINUTES * 60 * 1000
+  );
+
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
   return { start, end };
 };
@@ -105,6 +151,11 @@ const checkIn = async (employeeId, dateValue = new Date()) => {
 };
 
 const checkOut = async (employeeId, dateValue = new Date()) => {
+    const employee = await Employee.findById(employeeId);
+
+  if (!employee || employee.status !== "active") {
+    throw createError("Active employee not found.", 404);
+  }
   const { start } = getDayRange(dateValue);
 
   const attendance = await Attendance.findOne({
@@ -127,7 +178,8 @@ const checkOut = async (employeeId, dateValue = new Date()) => {
   }
 
   const hours =
-    (now.getTime() - attendance.checkIn.getTime()) / (1000 * 60 * 60);
+    (now.getTime() - attendance.checkIn.getTime()) /
+    (1000 * 60 * 60);
 
   attendance.checkOut = now;
   attendance.workHours = Number(hours.toFixed(2));
@@ -156,11 +208,13 @@ const getAttendance = async ({
 
   if (startDate || endDate) {
     filter.date = {};
-    if (startDate) filter.date.$gte = new Date(startDate);
+
+    if (startDate) {
+      filter.date.$gte = getDayRange(startDate).start;
+    }
+
     if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      filter.date.$lte = end;
+      filter.date.$lt = getDayRange(endDate).end;
     }
   }
 
@@ -170,6 +224,7 @@ const getAttendance = async ({
       .sort({ date: -1 })
       .skip((page - 1) * limit)
       .limit(limit),
+
     Attendance.countDocuments(filter),
   ]);
 
@@ -196,10 +251,18 @@ const getMonthlySummary = async (employeeId, month, year) => {
     throw createError("Invalid year.");
   }
 
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 1);
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+
+  const nextMonthDate =
+    month === 12
+      ? `${year + 1}-01-01`
+      : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+
+  const start = getDayRange(monthStart).start;
+  const end = getDayRange(nextMonthDate).start;
 
   const match = { date: { $gte: start, $lt: end } };
+
   if (employeeId) match.employee = employeeId;
 
   const summary = await Attendance.aggregate([
@@ -224,7 +287,9 @@ const getMonthlySummary = async (employeeId, month, year) => {
           $sum: { $cond: [{ $eq: ["$status", "on-leave"] }, 1, 0] },
         },
         workHours: { $sum: { $ifNull: ["$workHours", 0] } },
-        overtimeHours: { $sum: { $ifNull: ["$overtimeHours", 0] } },
+        overtimeHours: {
+          $sum: { $ifNull: ["$overtimeHours", 0] },
+        },
       },
     },
   ]);

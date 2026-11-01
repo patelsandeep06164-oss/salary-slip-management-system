@@ -15,54 +15,9 @@ import {
   FaTimes,
   FaInfoCircle,
 } from "react-icons/fa";
+
+import api from "../../services/api";
 import "./MyLeaves.css";
-
-/*
-  BACKEND INTEGRATION
-  GET /api/leave-requests/my
-
-  The backend must identify the logged-in employee using the
-  authenticated token. Do not trust an employee ID supplied by
-  the frontend for access control.
-
-  Change API_URL if your backend route is different.
-*/
-
-const API_URL = "/api/leave-requests/my";
-
-function getToken() {
-  return localStorage.getItem("token") || "";
-}
-
-async function apiRequest(url) {
-  const token = getToken();
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  const contentType = response.headers.get("content-type") || "";
-  const data = contentType.includes("application/json")
-    ? await response.json()
-    : await response.text();
-
-  if (!response.ok) {
-    const message =
-      typeof data === "object"
-        ? data?.message || data?.error
-        : data;
-
-    throw new Error(
-      message || `Request failed with status ${response.status}`
-    );
-  }
-
-  return data;
-}
 
 function extractLeaves(data) {
   if (Array.isArray(data)) return data;
@@ -82,7 +37,8 @@ function extractLeaves(data) {
 function formatDate(value) {
   if (!value) return "—";
 
-  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  const dateValue = String(value).slice(0, 10);
+  const date = new Date(`${dateValue}T00:00:00`);
 
   if (Number.isNaN(date.getTime())) return "—";
 
@@ -143,6 +99,7 @@ function getLeaveDays(leave) {
   const start = new Date(
     `${String(leave.startDate).slice(0, 10)}T00:00:00`
   );
+
   const end = new Date(
     `${String(leave.endDate).slice(0, 10)}T00:00:00`
   );
@@ -158,6 +115,16 @@ function getLeaveDays(leave) {
   return Math.round((end - start) / 86400000) + 1;
 }
 
+function getReviewRemarks(leave) {
+  return (
+    leave?.reviewRemarks ||
+    leave?.reviewNote ||
+    leave?.adminRemarks ||
+    leave?.remarks ||
+    ""
+  );
+}
+
 function MyLeaves() {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -168,6 +135,8 @@ function MyLeaves() {
   const [typeFilter, setTypeFilter] = useState("All");
   const [selectedLeave, setSelectedLeave] = useState(null);
 
+  // Fetch only the authenticated employee's leave records.
+  // The backend gets employeeId from the authenticated session.
   const loadLeaves = useCallback(async (isRefresh = false) => {
     setError("");
 
@@ -178,11 +147,26 @@ function MyLeaves() {
     }
 
     try {
-      const data = await apiRequest(API_URL);
+      const response = await api.get("/leaves");
+      const data = response.data;
+
+      if (data?.success === false) {
+        throw new Error(
+          data.message || "Unable to load leave requests."
+        );
+      }
+
       setLeaves(extractLeaves(data));
     } catch (err) {
+      console.error("My Leaves API Error:", {
+        status: err?.response?.status,
+        response: err?.response?.data,
+        message: err?.message,
+      });
+
       setError(
-        err?.message ||
+        err?.response?.data?.message ||
+          err?.message ||
           "Unable to load your leave requests. Please try again."
       );
     } finally {
@@ -193,9 +177,6 @@ function MyLeaves() {
 
   useEffect(() => {
     loadLeaves();
-
-    // Reload after a successful leave submission when this page is mounted.
-    // This component intentionally does not store leave records in localStorage.
   }, [loadLeaves]);
 
   const leaveTypes = useMemo(
@@ -204,7 +185,10 @@ function MyLeaves() {
       ...new Set(
         leaves
           .map((leave) => leave.leaveType)
-          .filter((type) => typeof type === "string" && type.trim())
+          .filter(
+            (type) =>
+              typeof type === "string" && type.trim()
+          )
       ),
     ],
     [leaves]
@@ -231,10 +215,12 @@ function MyLeaves() {
       const normalizedStatus = getStatus(leave.status).label;
 
       const matchesStatus =
-        statusFilter === "All" || normalizedStatus === statusFilter;
+        statusFilter === "All" ||
+        normalizedStatus === statusFilter;
 
       const matchesType =
-        typeFilter === "All" || leave.leaveType === typeFilter;
+        typeFilter === "All" ||
+        leave.leaveType === typeFilter;
 
       return matchesSearch && matchesStatus && matchesType;
     });
@@ -251,7 +237,8 @@ function MyLeaves() {
       {
         label: "Pending",
         value: leaves.filter(
-          (leave) => getStatus(leave.status).label === "Pending"
+          (leave) =>
+            getStatus(leave.status).label === "Pending"
         ).length,
         icon: <FaHourglassHalf />,
         tone: "orange",
@@ -259,7 +246,8 @@ function MyLeaves() {
       {
         label: "Approved",
         value: leaves.filter(
-          (leave) => getStatus(leave.status).label === "Approved"
+          (leave) =>
+            getStatus(leave.status).label === "Approved"
         ).length,
         icon: <FaCheckCircle />,
         tone: "green",
@@ -267,7 +255,8 @@ function MyLeaves() {
       {
         label: "Rejected",
         value: leaves.filter(
-          (leave) => getStatus(leave.status).label === "Rejected"
+          (leave) =>
+            getStatus(leave.status).label === "Rejected"
         ).length,
         icon: <FaTimesCircle />,
         tone: "red",
@@ -290,7 +279,8 @@ function MyLeaves() {
   const activeLeave = selectedLeave
     ? leaves.find(
         (leave) =>
-          String(getLeaveId(leave)) === String(getLeaveId(selectedLeave))
+          String(getLeaveId(leave)) ===
+          String(getLeaveId(selectedLeave))
       ) || selectedLeave
     : null;
 
@@ -320,7 +310,9 @@ function MyLeaves() {
             disabled={loading || refreshing}
           >
             <FaSyncAlt
-              className={refreshing ? "my-leaves-spinning" : ""}
+              className={
+                refreshing ? "my-leaves-spinning" : ""
+              }
             />
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
@@ -335,10 +327,18 @@ function MyLeaves() {
         </div>
       </header>
 
-      <section className="my-leaves-stats" aria-label="Leave summary">
+      <section
+        className="my-leaves-stats"
+        aria-label="Leave summary"
+      >
         {stats.map((stat) => (
-          <article className="my-leaves-stat-card" key={stat.label}>
-            <span className={`my-leaves-stat-icon ${stat.tone}`}>
+          <article
+            className="my-leaves-stat-card"
+            key={stat.label}
+          >
+            <span
+              className={`my-leaves-stat-icon ${stat.tone}`}
+            >
               {stat.icon}
             </span>
 
@@ -363,6 +363,7 @@ function MyLeaves() {
         <div className="my-leaves-alert" role="alert">
           <FaInfoCircle />
           <span>{error}</span>
+
           <button
             type="button"
             onClick={() => setError("")}
@@ -392,10 +393,13 @@ function MyLeaves() {
         <div className="my-leaves-filters">
           <label className="my-leaves-search">
             <FaSearch />
+
             <input
               type="search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
               placeholder="Search leave type or reason..."
               aria-label="Search your leave requests"
             />
@@ -403,9 +407,12 @@ function MyLeaves() {
 
           <label className="my-leaves-select-wrap">
             <FaFilter />
+
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              onChange={(event) =>
+                setStatusFilter(event.target.value)
+              }
               aria-label="Filter by status"
             >
               <option value="All">All statuses</option>
@@ -419,12 +426,16 @@ function MyLeaves() {
           <label className="my-leaves-select-wrap">
             <select
               value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
+              onChange={(event) =>
+                setTypeFilter(event.target.value)
+              }
               aria-label="Filter by leave type"
             >
               {leaveTypes.map((type) => (
                 <option value={type} key={type}>
-                  {type === "All" ? "All leave types" : type}
+                  {type === "All"
+                    ? "All leave types"
+                    : type}
                 </option>
               ))}
             </select>
@@ -503,20 +514,33 @@ function MyLeaves() {
                   const id = getLeaveId(leave);
 
                   return (
-                    <tr key={id || `${leave.startDate}-${index}`}>
+                    <tr
+                      key={
+                        id ||
+                        `${leave.startDate}-${index}`
+                      }
+                    >
                       <td>
                         <div className="my-leaves-type-cell">
                           <span>
                             <FaUmbrellaBeach />
                           </span>
-                          <strong>{leave.leaveType || "Leave"}</strong>
+
+                          <strong>
+                            {leave.leaveType || "Leave"}
+                          </strong>
                         </div>
                       </td>
 
                       <td>
                         <div className="my-leaves-date-cell">
-                          <strong>{formatDate(leave.startDate)}</strong>
-                          <small>to {formatDate(leave.endDate)}</small>
+                          <strong>
+                            {formatDate(leave.startDate)}
+                          </strong>
+
+                          <small>
+                            to {formatDate(leave.endDate)}
+                          </small>
                         </div>
                       </td>
 
@@ -527,7 +551,9 @@ function MyLeaves() {
                       </td>
 
                       <td className="my-leaves-applied-date">
-                        {formatDate(leave.appliedOn || leave.createdAt)}
+                        {formatDate(
+                          leave.appliedOn || leave.createdAt
+                        )}
                       </td>
 
                       <td>
@@ -543,8 +569,12 @@ function MyLeaves() {
                         <button
                           type="button"
                           className="my-leaves-view-button"
-                          onClick={() => setSelectedLeave(leave)}
-                          aria-label={`View ${leave.leaveType || "leave"} details`}
+                          onClick={() =>
+                            setSelectedLeave(leave)
+                          }
+                          aria-label={`View ${
+                            leave.leaveType || "leave"
+                          } details`}
                         >
                           <FaEye />
                           View
@@ -570,7 +600,9 @@ function MyLeaves() {
               disabled={refreshing}
             >
               <FaSyncAlt
-                className={refreshing ? "my-leaves-spinning" : ""}
+                className={
+                  refreshing ? "my-leaves-spinning" : ""
+                }
               />
               Refresh list
             </button>
@@ -596,6 +628,7 @@ function MyLeaves() {
             <div className="my-leaves-modal-heading">
               <div>
                 <span>LEAVE REQUEST DETAILS</span>
+
                 <h2 id="my-leaves-modal-title">
                   {activeLeave.leaveType || "Leave"}
                 </h2>
@@ -613,42 +646,52 @@ function MyLeaves() {
             <div className="my-leaves-modal-body">
               <div>
                 <small>Start date</small>
-                <strong>{formatDate(activeLeave.startDate)}</strong>
+                <strong>
+                  {formatDate(activeLeave.startDate)}
+                </strong>
               </div>
 
               <div>
                 <small>End date</small>
-                <strong>{formatDate(activeLeave.endDate)}</strong>
+                <strong>
+                  {formatDate(activeLeave.endDate)}
+                </strong>
               </div>
 
               <div>
                 <small>Total days</small>
-                <strong>{getLeaveDays(activeLeave)}</strong>
+                <strong>
+                  {getLeaveDays(activeLeave)}
+                </strong>
               </div>
 
               <div>
                 <small>Applied on</small>
                 <strong>
-                  {formatDate(activeLeave.appliedOn || activeLeave.createdAt)}
+                  {formatDate(
+                    activeLeave.appliedOn ||
+                    activeLeave.createdAt
+                  )}
                 </strong>
               </div>
 
               <div className="my-leaves-modal-reason">
                 <small>Reason</small>
-                <p>{activeLeave.reason || "No reason provided."}</p>
+                <p>
+                  {activeLeave.reason || "No reason provided."}
+                </p>
               </div>
 
-              {(activeLeave.reviewNote || activeLeave.adminRemarks) && (
+              {getReviewRemarks(activeLeave) && (
                 <div className="my-leaves-modal-reason">
                   <small>Administrator's note</small>
-                  <p>
-                    {activeLeave.reviewNote || activeLeave.adminRemarks}
-                  </p>
+                  <p>{getReviewRemarks(activeLeave)}</p>
                 </div>
               )}
 
               <div className="my-leaves-modal-status">
                 <small>Current status</small>
+
                 <span
                   className={`my-leaves-status ${
                     getStatus(activeLeave.status).className

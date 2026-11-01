@@ -1,112 +1,75 @@
+
 import {
   createContext,
   useContext,
   useState,
   useMemo,
   useCallback,
+  useEffect,
 } from "react";
+
+import authService from "../services/authService";
 
 const AuthContext = createContext(undefined);
 
-const USER_KEY = "user";
-const TOKEN_KEY = "token";
-const REMEMBER_KEY = "rememberMe";
-
-function getStoredUser() {
-  try {
-    if (typeof window === "undefined") return null;
-
-    const savedUser = window.localStorage.getItem(USER_KEY);
-    return savedUser ? JSON.parse(savedUser) : null;
-  } catch {
-    return null;
-  }
-}
-
-function getStoredToken() {
-  try {
-    if (typeof window === "undefined") return "";
-
-    return window.localStorage.getItem(TOKEN_KEY) || "";
-  } catch {
-    return "";
-  }
-}
-
-function storeValue(key, value) {
-  try {
-    if (typeof window === "undefined") return false;
-
-    if (value === null || value === undefined || value === "") {
-      window.localStorage.removeItem(key);
-    } else {
-      window.localStorage.setItem(
-        key,
-        typeof value === "string" ? value : JSON.stringify(value)
-      );
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function AuthProvider({ children }) {
-  const [user, setUserState] = useState(getStoredUser);
-  const [token, setTokenState] = useState(getStoredToken);
-  const [loading, setLoading] = useState(false);
+  const [user, setUserState] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // Update user in memory only.
   const setUser = useCallback((userData) => {
     setUserState(userData ?? null);
-    storeValue(USER_KEY, userData ?? null);
   }, []);
 
-  const setToken = useCallback((authToken) => {
-    const nextToken = authToken ? String(authToken) : "";
-
-    setTokenState(nextToken);
-    storeValue(TOKEN_KEY, nextToken);
-  }, []);
-
-  const login = useCallback((userData, authToken) => {
-    if (!userData || typeof userData !== "object" || !authToken) {
-      throw new Error(
-        "Valid user information and an authentication token are required."
-      );
-    }
-
-    const nextToken = String(authToken);
-
-    // Save both values before updating the authenticated state.
-    const userSaved = storeValue(USER_KEY, userData);
-    const tokenSaved = storeValue(TOKEN_KEY, nextToken);
-
-    if (!userSaved || !tokenSaved) {
-      storeValue(USER_KEY, null);
-      storeValue(TOKEN_KEY, null);
-
-      setUserState(null);
-      setTokenState("");
-
-      throw new Error(
-        "Unable to save your login session. Please check your browser storage settings."
-      );
+  // Login after successful backend authentication.
+  const login = useCallback((userData) => {
+    if (!userData || typeof userData !== "object") {
+      throw new Error("Valid user information is required.");
     }
 
     setUserState(userData);
-    setTokenState(nextToken);
     setLoading(false);
   }, []);
 
-  const logout = useCallback(() => {
-    storeValue(USER_KEY, null);
-    storeValue(TOKEN_KEY, null);
-    storeValue(REMEMBER_KEY, null);
+  // Verify existing HttpOnly cookie session on app startup.
+  useEffect(() => {
+    let isMounted = true;
 
-    setUserState(null);
-    setTokenState("");
-    setLoading(false);
+    const checkSession = async () => {
+      try {
+        const response = await authService.getCurrentUser();
+        const currentUser =
+          response.user || response.data?.user || null;
+
+        if (isMounted) {
+          setUserState(currentUser);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setUserState(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    checkSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Logout from backend and clear local application state.
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } finally {
+      setUserState(null);
+      setLoading(false);
+    }
   }, []);
 
   const role = String(
@@ -115,16 +78,14 @@ export function AuthProvider({ children }) {
     .trim()
     .toLowerCase();
 
-  const isAuthenticated = Boolean(user && token);
+  const isAuthenticated = Boolean(user);
 
   const value = useMemo(
     () => ({
       user,
-      token,
       loading,
       setLoading,
       setUser,
-      setToken,
       login,
       logout,
       role,
@@ -132,10 +93,8 @@ export function AuthProvider({ children }) {
     }),
     [
       user,
-      token,
       loading,
       setUser,
-      setToken,
       login,
       logout,
       role,

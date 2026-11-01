@@ -1,6 +1,16 @@
 const mongoose = require("mongoose");
 const Employee = require("../models/Employee");
 const User = require("../models/User");
+const Department = require("../models/Department");
+
+const ALLOWED_EMPLOYEE_STATUSES = [
+  "active",
+  "inactive",
+  "on-leave",
+  "terminated",
+];
+
+const LOGIN_ALLOWED_STATUSES = ["active", "on-leave"];
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -8,31 +18,135 @@ const createError = (message, statusCode = 400) => {
   return error;
 };
 
+const hasOwn = (obj, key) =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
 const escapeRegex = (value) =>
   String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeEmployeeCode = (value) =>
-  String(value || "").trim().toUpperCase();
+  String(value ?? "").trim().toUpperCase();
 
 const normalizeEmail = (value) =>
-  String(value || "").trim().toLowerCase();
+  String(value ?? "").trim().toLowerCase();
 
 const validateObjectId = (id) => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw createError("Invalid employee ID.", 400);
+  if (!mongoose.isValidObjectId(id)) {
+    throw createError("Invalid employee ID.");
   }
 };
 
-// Create employee
+const validateStatus = (status) => {
+  if (!ALLOWED_EMPLOYEE_STATUSES.includes(status)) {
+    throw createError("Invalid employee status.");
+  }
+
+  return status;
+};
+
+const isLoginAllowed = (status) =>
+  LOGIN_ALLOWED_STATUSES.includes(status);
+
+const validateDepartment = async (value) => {
+  if (value === null || value === "") {
+    return null;
+  }
+
+  const id =
+    value && typeof value === "object"
+      ? value._id || value.id
+      : value;
+
+  if (!id || !mongoose.isValidObjectId(id)) {
+    throw createError(
+      "Please select a valid department from the department list."
+    );
+  }
+
+  const department = await Department.findOne({
+    _id: id,
+    isActive: true,
+  }).select("_id");
+
+  if (!department) {
+    throw createError(
+      "Selected department does not exist or is inactive."
+    );
+  }
+
+  return department._id;
+};
+
+const handleDuplicateError = (error) => {
+  if (!error || error.code !== 11000) {
+    throw error;
+  }
+
+  const field = Object.keys(error.keyPattern || {})[0];
+
+  if (field === "employeeCode") {
+    throw createError("Employee code already exists.", 409);
+  }
+
+  if (field === "email") {
+    throw createError("Email already exists.", 409);
+  }
+
+  throw createError(
+    "A duplicate employee record already exists.",
+    409
+  );
+};
+
+const validateName = (value, label) => {
+  if (typeof value !== "string" || !value.trim()) {
+    throw createError(`${label} is required.`);
+  }
+
+  return value.trim();
+};
+
+const validateOptionalLastName = (value) => {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  if (typeof value !== "string") {
+    throw createError("Last name must be valid text.");
+  }
+
+  return value.trim();
+};
+
+const validateJoiningDate = (value) => {
+  if (
+    !value ||
+    Number.isNaN(new Date(value).getTime())
+  ) {
+    throw createError("Please provide a valid joining date.");
+  }
+
+  return value;
+};
+
+// --------------------------------------------------
+// CREATE EMPLOYEE
+// --------------------------------------------------
+
 const createEmployee = async (data = {}) => {
   const employeeCode = normalizeEmployeeCode(data.employeeCode);
   const email = normalizeEmail(data.email);
-  const firstName = String(data.firstName || "").trim();
-  const lastName = String(data.lastName || "").trim();
 
-  if (!employeeCode || !firstName || !lastName || !email || !data.joiningDate) {
+  const firstName = validateName(data.firstName, "First name");
+  const lastName = validateOptionalLastName(data.lastName);
+  const designation = validateName(
+    data.designation,
+    "Designation"
+  );
+
+  if (!employeeCode || !email) {
     throw createError(
-      "Employee code, first name, last name, email and joining date are required."
+      "Employee code and email are required."
     );
   }
 
@@ -40,69 +154,71 @@ const createEmployee = async (data = {}) => {
     throw createError("Please provide a valid email address.");
   }
 
+  validateJoiningDate(data.joiningDate);
+
+  const status =
+    data.status === undefined
+      ? "active"
+      : validateStatus(data.status);
+
   const duplicate = await Employee.findOne({
     $or: [{ employeeCode }, { email }],
   }).lean();
 
   if (duplicate) {
-    if (duplicate.employeeCode === employeeCode) {
-      throw createError("Employee code already exists.", 409);
-    }
-
-    throw createError("Email already exists.", 409);
+    throw createError(
+      duplicate.employeeCode === employeeCode
+        ? "Employee code already exists."
+        : "Email already exists.",
+      409
+    );
   }
 
+  const departmentId = await validateDepartment(
+    data.department ?? null
+  );
+
+  // Explicit allowlist: never accept a User link from request data.
   const employeeData = {
-    ...data,
     employeeCode,
+    email,
     firstName,
     lastName,
-    email,
-    pan: data.pan ? String(data.pan).trim().toUpperCase() : "",
+    phone: data.phone,
+    pan: data.pan
+      ? String(data.pan).trim().toUpperCase()
+      : "",
+    dateOfBirth: data.dateOfBirth,
+    gender: data.gender,
+    address: data.address,
+    department: departmentId,
+    designation,
+    joiningDate: data.joiningDate,
+    employmentType: data.employmentType,
+    status,
+    salary: data.salary,
+    bankDetails: data.bankDetails,
+    documents: data.documents,
   };
 
-  if (data.department) {
-    const departmentId =
-      typeof data.department === "object"
-        ? data.department._id || data.department.id
-        : data.department;
-
-    if (
-      !departmentId ||
-      !mongoose.Types.ObjectId.isValid(departmentId)
-    ) {
-      throw createError(
-        "Please select a valid department from the department list."
-      );
+  // Remove undefined fields so schema defaults can apply.
+  Object.keys(employeeData).forEach((key) => {
+    if (employeeData[key] === undefined) {
+      delete employeeData[key];
     }
-
-    employeeData.department = departmentId;
-  } else {
-    employeeData.department = null;
-  }
+  });
 
   try {
     return await Employee.create(employeeData);
   } catch (error) {
-    if (error.code === 11000) {
-      const duplicateField = Object.keys(error.keyPattern || {})[0];
-
-      if (duplicateField === "employeeCode") {
-        throw createError("Employee code already exists.", 409);
-      }
-
-      if (duplicateField === "email") {
-        throw createError("Email already exists.", 409);
-      }
-
-      throw createError("A duplicate employee record already exists.", 409);
-    }
-
-    throw error;
+    handleDuplicateError(error);
   }
 };
 
-// Get employees with pagination, search and filters
+// --------------------------------------------------
+// GET EMPLOYEES
+// --------------------------------------------------
+
 const getEmployees = async ({
   search = "",
   page = 1,
@@ -110,27 +226,35 @@ const getEmployees = async ({
   status,
   department,
 } = {}) => {
-  page = Math.max(1, Number(page) || 1);
-  limit = Math.min(100, Math.max(1, Number(limit) || 10));
+  page = Math.max(1, Math.floor(Number(page) || 1));
+
+  limit = Math.min(
+    100,
+    Math.max(1, Math.floor(Number(limit) || 10))
+  );
 
   const filter = {};
 
   if (status) {
+    validateStatus(status);
     filter.status = status;
   }
 
   if (department) {
-    if (!mongoose.Types.ObjectId.isValid(department)) {
+    if (!mongoose.isValidObjectId(department)) {
       throw createError("Invalid department ID.");
     }
 
     filter.department = department;
   }
 
-  const searchText = String(search || "").trim();
+  const searchText = String(search ?? "").trim();
 
   if (searchText) {
-    const regex = new RegExp(escapeRegex(searchText), "i");
+    const regex = new RegExp(
+      escapeRegex(searchText),
+      "i"
+    );
 
     filter.$or = [
       { employeeCode: regex },
@@ -166,12 +290,17 @@ const getEmployees = async ({
   };
 };
 
-// Get one employee by ID
+// --------------------------------------------------
+// GET EMPLOYEE BY ID
+// --------------------------------------------------
+
 const getEmployeeById = async (id) => {
   validateObjectId(id);
 
   const employee = await Employee.findById(id)
-    .select("+bankDetails.accountNumber +bankDetails.ifscCode")
+    .select(
+      "+bankDetails.accountNumber +bankDetails.ifscCode"
+    )
     .populate("department", "name code")
     .populate("user", "name email role isActive");
 
@@ -182,7 +311,10 @@ const getEmployeeById = async (id) => {
   return employee;
 };
 
-// Update employee
+// --------------------------------------------------
+// UPDATE EMPLOYEE
+// --------------------------------------------------
+
 const updateEmployee = async (id, data = {}) => {
   validateObjectId(id);
 
@@ -212,76 +344,129 @@ const updateEmployee = async (id, data = {}) => {
     "documents",
   ];
 
-  for (const field of allowedFields) {
-    if (!Object.prototype.hasOwnProperty.call(data, field)) {
+  const updates = allowedFields.filter((field) =>
+    hasOwn(data, field)
+  );
+
+  if (updates.length === 0) {
+    throw createError("No valid fields provided for update.");
+  }
+
+  for (const field of updates) {
+    const value = data[field];
+
+    if (field === "firstName") {
+      employee.firstName = validateName(
+        value,
+        "First name"
+      );
+      continue;
+    }
+
+    if (field === "lastName") {
+      employee.lastName = validateOptionalLastName(value);
+      continue;
+    }
+
+    if (field === "designation") {
+      employee.designation = validateName(
+        value,
+        "Designation"
+      );
       continue;
     }
 
     if (field === "pan") {
-      employee.pan = data.pan
-        ? String(data.pan).trim().toUpperCase()
+      employee.pan = value
+        ? String(value).trim().toUpperCase()
         : "";
       continue;
     }
 
     if (field === "department") {
-      if (!data.department) {
-        employee.department = null;
-        continue;
-      }
-
-      const departmentId =
-        typeof data.department === "object"
-          ? data.department._id || data.department.id
-          : data.department;
-
-      if (!departmentId || !mongoose.Types.ObjectId.isValid(departmentId)) {
-        throw createError("Please select a valid department.");
-      }
-
-      employee.department = departmentId;
+      employee.department = await validateDepartment(value);
       continue;
     }
 
-    if (field === "salary" && data.salary && typeof data.salary === "object") {
-      const currentSalary = employee.salary?.toObject
-        ? employee.salary.toObject()
-        : employee.salary?.toObject?.() || employee.salary || {};
+    if (field === "joiningDate") {
+      employee.joiningDate = validateJoiningDate(value);
+      continue;
+    }
+
+    if (field === "salary") {
+      if (
+        !value ||
+        typeof value !== "object" ||
+        Array.isArray(value)
+      ) {
+        throw createError("Invalid salary data.");
+      }
+
+      const currentSalary =
+        employee.salary?.toObject?.() ||
+        employee.salary ||
+        {};
 
       employee.salary = {
         ...currentSalary,
-        ...data.salary,
+        ...value,
       };
 
       continue;
     }
 
-    employee[field] = data[field];
-  }
-
-  try {
-    await employee.save();
-  } catch (error) {
-    if (error.code === 11000) {
-      throw createError(
-        "Employee code, email or linked user already exists.",
-        409
-      );
+    if (field === "status") {
+      employee.status = validateStatus(value);
+      continue;
     }
 
-    throw error;
+    employee[field] = value;
   }
 
-  if (employee.user) {
-    await User.findByIdAndUpdate(employee.user, {
-      isActive: employee.status === "active",
-    });
+  const statusChanged = employee.isModified("status");
+
+  try {
+    if (statusChanged && employee.user) {
+      const session = await mongoose.startSession();
+
+      try {
+        await session.withTransaction(async () => {
+          await employee.save({ session });
+
+          const result = await User.updateOne(
+            { _id: employee.user },
+            {
+              $set: {
+                isActive: isLoginAllowed(employee.status),
+              },
+            },
+            { session }
+          );
+
+          if (result.matchedCount !== 1) {
+            throw createError(
+              "Linked user account not found.",
+              409
+            );
+          }
+        });
+      } finally {
+        await session.endSession();
+      }
+    } else {
+      await employee.save();
+    }
+  } catch (error) {
+    handleDuplicateError(error);
   }
 
   return employee;
 };
 
-// Deactivate employee
+// --------------------------------------------------
+// DEACTIVATE EMPLOYEE
+// --------------------------------------------------
+
 const deactivateEmployee = async (id) => {
   validateObjectId(id);
 
@@ -291,13 +476,35 @@ const deactivateEmployee = async (id) => {
     throw createError("Employee not found.", 404);
   }
 
-  employee.status = "inactive";
-  await employee.save();
+  const session = await mongoose.startSession();
 
-  if (employee.user) {
-    await User.findByIdAndUpdate(employee.user, {
-      isActive: false,
+  try {
+    await session.withTransaction(async () => {
+      employee.status = "inactive";
+
+      await employee.save({ session });
+
+      if (employee.user) {
+        const result = await User.updateOne(
+          { _id: employee.user },
+          {
+            $set: {
+              isActive: false,
+            },
+          },
+          { session }
+        );
+
+        if (result.matchedCount !== 1) {
+          throw createError(
+            "Linked user account not found.",
+            409
+          );
+        }
+      }
     });
+  } finally {
+    await session.endSession();
   }
 
   return {
@@ -305,6 +512,10 @@ const deactivateEmployee = async (id) => {
     employee,
   };
 };
+
+// --------------------------------------------------
+// EXPORTS
+// --------------------------------------------------
 
 module.exports = {
   createEmployee,

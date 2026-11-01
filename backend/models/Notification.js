@@ -3,6 +3,15 @@ const mongoose = require("mongoose");
 
 const notificationSchema = new mongoose.Schema(
   {
+    // Admin who should receive this notification.
+    // Optional for backward compatibility with existing notification creators.
+    recipientAdmin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+
     title: {
       type: String,
       required: true,
@@ -31,17 +40,20 @@ const notificationSchema = new mongoose.Schema(
         "salary-slip",
         "email",
         "system",
+        "admin-approval",
       ],
       required: true,
     },
 
-    // Optional details for the related payroll/email event.
+    // Additional information related to the notification.
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
 
-    // Reuse the same key when updating an existing alert.
+    // Keep deduplication keys unique.
+    // For recipient-specific notifications, include recipientAdmin ID
+    // in the key when creating the notification.
     dedupeKey: {
       type: String,
       trim: true,
@@ -65,8 +77,17 @@ const notificationSchema = new mongoose.Schema(
   }
 );
 
-notificationSchema.index({ createdAt: -1 });
-notificationSchema.index({ isRead: 1, createdAt: -1 });
+// Notification listing and unread-count indexes.
+notificationSchema.index({
+  recipientAdmin: 1,
+  createdAt: -1,
+});
+
+notificationSchema.index({
+  recipientAdmin: 1,
+  isRead: 1,
+  createdAt: -1,
+});
 
 module.exports = mongoose.model(
   "Notification",

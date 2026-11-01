@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FaMoneyBillWave,
@@ -13,43 +12,12 @@ import {
   FaUserTie,
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import api from "../../services/api";
 import "./GeneratePayroll.css";
-
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "https://salary-slip-backend-rjgj.onrender.com/api";
-
-const EMPLOYEES_API = `${API_BASE_URL}/employees`;
-const PAYROLL_API = `${API_BASE_URL}/payroll`;
-const COMPANY_SETTINGS_KEY = "company_settings";
-
-const readCompanySettings = () => {
-  try {
-    const saved = JSON.parse(
-      localStorage.getItem(COMPANY_SETTINGS_KEY) || "{}"
-    );
-
-    return {
-      companyName: saved.companyName || "Your Company",
-      address: saved.address || "",
-      email: saved.email || "",
-      phone: saved.phone || "",
-      gstin: saved.gstin || "",
-      logoUrl: saved.logoUrl || "",
-    };
-  } catch {
-    return {
-      companyName: "Your Company",
-      address: "",
-      email: "",
-      phone: "",
-      gstin: "",
-      logoUrl: "",
-    };
-  }
-};
 
 const getMonthValue = () => {
   const date = new Date();
+
   return `${date.getFullYear()}-${String(
     date.getMonth() + 1
   ).padStart(2, "0")}`;
@@ -128,52 +96,121 @@ const getDepartmentName = (department) =>
     ? department
     : department?.name || department?.code || "";
 
-const formatCurrency = (amount) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(Number(amount) || 0);
+const formatCurrency = (amount, currency = "INR") => {
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2,
+    }).format(Number(amount) || 0);
+  } catch {
+    return `₹${(Number(amount) || 0).toFixed(2)}`;
+  }
+};
 
-const extractArray = (response) => {
+const extractArray = (response, key) => {
   if (Array.isArray(response)) return response;
-  if (Array.isArray(response?.employees)) return response.employees;
-  if (Array.isArray(response?.payrolls)) return response.payrolls;
-  if (Array.isArray(response?.payrollRecords)) {
-    return response.payrollRecords;
+
+  if (Array.isArray(response?.[key])) {
+    return response[key];
   }
-  if (Array.isArray(response?.records)) return response.records;
-  if (Array.isArray(response?.data)) return response.data;
-  if (Array.isArray(response?.data?.employees)) {
-    return response.data.employees;
+
+  if (Array.isArray(response?.data?.[key])) {
+    return response.data[key];
   }
-  if (Array.isArray(response?.data?.payrolls)) {
-    return response.data.payrolls;
+
+  if (Array.isArray(response?.data)) {
+    return response.data;
   }
-  if (Array.isArray(response?.data?.records)) {
-    return response.data.records;
+
+  if (Array.isArray(response?.records)) {
+    return response.records;
   }
+
   return [];
 };
 
-const getErrorMessage = (data, fallback) =>
-  data?.message || data?.error || fallback;
+const getErrorMessage = (error, fallback) =>
+  error?.response?.data?.message ||
+  error?.response?.data?.error ||
+  error?.message ||
+  fallback;
+
+const getAddressText = (address) => {
+  if (!address) return "";
+
+  if (typeof address === "string") {
+    return address;
+  }
+
+  if (typeof address === "object") {
+    return [
+      address.street,
+      address.city,
+      address.state,
+      address.postalCode,
+      address.country,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  return "";
+};
+
+const getCompanyLogoUrl = (logoPath) => {
+  if (!logoPath || typeof logoPath !== "string") {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(logoPath)) {
+    return logoPath;
+  }
+
+  const baseURL = api.defaults.baseURL || "";
+  const origin = baseURL.replace(/\/api\/?$/i, "");
+
+  if (!origin) return logoPath;
+
+  return `${origin}/${logoPath.replace(/^\/+/, "")}`;
+};
+
+const getPayrollEmployeeId = (record) =>
+  String(
+    record?.employee?._id ??
+      record?.employee ??
+      record?.employeeId?._id ??
+      record?.employeeId ??
+      record?.employee?.id ??
+      ""
+  );
+
+const normalizeCompanySettings = (settings = {}) => ({
+  companyName: settings.companyName || "Your Company",
+  address: getAddressText(settings.address),
+  email: settings.email || "",
+  phone: settings.phone || "",
+  logoUrl: getCompanyLogoUrl(settings.logoPath),
+  currency: settings.currency || "INR",
+});
 
 function GeneratePayroll() {
   const navigate = useNavigate();
 
-  const [companySettings, setCompanySettings] = useState(
-    readCompanySettings
-  );
+  const [companySettings, setCompanySettings] = useState({
+    companyName: "Your Company",
+    address: "",
+    email: "",
+    phone: "",
+    logoUrl: "",
+    currency: "INR",
+  });
 
   const [employees, setEmployees] = useState([]);
   const [payrollRecords, setPayrollRecords] = useState([]);
 
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [payrollMonth, setPayrollMonth] = useState(getMonthValue());
-
-  const [workingDays, setWorkingDays] = useState("26");
-  const [paidDays, setPaidDays] = useState("26");
 
   const [basicSalary, setBasicSalary] = useState("");
   const [allowances, setAllowances] = useState("0");
@@ -186,108 +223,110 @@ function GeneratePayroll() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
 
-  useEffect(() => {
-    const refreshCompanySettings = () => {
-      setCompanySettings(readCompanySettings());
-    };
-
-    window.addEventListener(
-      "companySettingsUpdated",
-      refreshCompanySettings
-    );
-    window.addEventListener("storage", refreshCompanySettings);
-
-    return () => {
-      window.removeEventListener(
-        "companySettingsUpdated",
-        refreshCompanySettings
-      );
-      window.removeEventListener(
-        "storage",
-        refreshCompanySettings
-      );
-    };
-  }, []);
-
-  const getHeaders = useCallback(() => {
-    const token = localStorage.getItem("token");
-
-    return {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  }, []);
-
+  // Load employees, payroll records and company settings
+  // from authenticated backend APIs.
   const loadPageData = useCallback(async () => {
     setLoading(true);
     setMessage("");
 
-    let employeeLoadError = "";
-    let payrollLoadError = "";
+    const { month, year } = getPayrollPeriod(payrollMonth);
 
-    const headers = getHeaders();
+    const results = await Promise.allSettled([
+      api.get("/employees", {
+        params: { limit: 100 },
+      }),
 
-    try {
-      const response = await fetch(EMPLOYEES_API, {
-        method: "GET",
-        headers,
+      api.get("/payroll", {
+        params: { month, year },
+      }),
+
+      api.get("/settings"),
+    ]);
+
+    const errors = [];
+
+    // Employees
+    if (results[0].status === "fulfilled") {
+      const responseData = results[0].value.data;
+
+      setEmployees(extractArray(responseData, "employees"));
+    } else {
+      setEmployees([]);
+
+      errors.push(
+        `Employees: ${getErrorMessage(
+          results[0].reason,
+          "Unable to load employees."
+        )}`
+      );
+    }
+
+    // Payroll records
+    if (results[1].status === "fulfilled") {
+      const responseData = results[1].value.data;
+
+      setPayrollRecords(extractArray(responseData, "payrolls"));
+    } else {
+      setPayrollRecords([]);
+
+      errors.push(
+        `Payroll: ${getErrorMessage(
+          results[1].reason,
+          "Unable to load payroll records."
+        )}`
+      );
+    }
+
+    // Company settings
+    if (results[2].status === "fulfilled") {
+      const responseData = results[2].value.data;
+
+      const settings =
+        responseData?.settings ||
+        responseData?.data?.settings ||
+        responseData?.data ||
+        {};
+
+      setCompanySettings(normalizeCompanySettings(settings));
+    } else {
+      setCompanySettings({
+        companyName: "Your Company",
+        address: "",
+        email: "",
+        phone: "",
+        logoUrl: "",
+        currency: "INR",
       });
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          getErrorMessage(data, "Unable to load employees.")
-        );
-      }
-
-      setEmployees(extractArray(data));
-    } catch (error) {
-      setEmployees([]);
-      employeeLoadError =
-        error.message || "Unable to connect to employee API.";
-    }
-
-    try {
-      const { month, year } = getPayrollPeriod(payrollMonth);
-
-      const response = await fetch(
-        `${PAYROLL_API}?month=${month}&year=${year}`,
-        {
-          method: "GET",
-          headers,
-        }
+      errors.push(
+        `Company Settings: ${getErrorMessage(
+          results[2].reason,
+          "Unable to load company settings."
+        )}`
       );
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          getErrorMessage(data, "Unable to load payroll records.")
-        );
-      }
-
-      setPayrollRecords(extractArray(data));
-    } catch (error) {
-      setPayrollRecords([]);
-      payrollLoadError =
-        error.message || "Unable to load payroll records.";
     }
 
-    if (employeeLoadError || payrollLoadError) {
+    if (errors.length > 0) {
       setMessageType("error");
-      setMessage(
-        [employeeLoadError, payrollLoadError]
-          .filter(Boolean)
-          .join(" Payroll: ")
-      );
+      setMessage(errors.join(" | "));
     }
 
     setLoading(false);
-  }, [getHeaders, payrollMonth]);
+  }, [payrollMonth]);
 
   useEffect(() => {
-    loadPageData();
+    let mounted = true;
+
+    const load = async () => {
+      if (!mounted) return;
+      await loadPageData();
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
   }, [loadPageData]);
 
   const employee = useMemo(
@@ -304,37 +343,16 @@ function GeneratePayroll() {
   const bonusAmount = Number(bonus) || 0;
   const deductionAmount = Number(deductions) || 0;
 
-  const totalWorkingDays = Number(workingDays) || 0;
-  const totalPaidDays = Number(paidDays) || 0;
-
-  const attendanceFactor =
-    totalWorkingDays > 0
-      ? Math.min(totalPaidDays, totalWorkingDays) /
-        totalWorkingDays
-      : 0;
-
-  const proratedBasic = basic * attendanceFactor;
-  const proratedAllowances =
-    allowanceAmount * attendanceFactor;
-  const proratedHra = hraAmount * attendanceFactor;
-
   const grossSalary =
-    proratedBasic +
-    proratedHra +
-    proratedAllowances +
-    bonusAmount;
+    basic + hraAmount + allowanceAmount + bonusAmount;
 
-  const netSalary = grossSalary - deductionAmount;
+  const netSalary = Math.max(
+    0,
+    grossSalary - deductionAmount
+  );
 
-  const alreadyGenerated = payrollRecords.some((record) => {
-    const recordEmployeeId = String(
-      record.employeeId?._id ??
-        record.employeeId ??
-        record.employee?._id ??
-        record.employee?.id ??
-        record.employee?.employeeId ??
-        ""
-    );
+  const alreadyGenerated = useMemo(() => {
+    if (!selectedEmployee) return false;
 
     let period;
 
@@ -344,19 +362,26 @@ function GeneratePayroll() {
       return false;
     }
 
-    return (
-      recordEmployeeId === selectedEmployee &&
-      Number(record.month ?? record.payrollMonth) === period.month &&
-      Number(record.year ?? record.payrollYear) === period.year
-    );
-  });
+    return payrollRecords.some((record) => {
+      const recordEmployeeId = getPayrollEmployeeId(record);
 
-  const handleEmployeeChange = (value) => {
-    setSelectedEmployee(value);
+      return (
+        recordEmployeeId === selectedEmployee &&
+        Number(record.month ?? record.payrollMonth) ===
+          period.month &&
+        Number(record.year ?? record.payrollYear) ===
+          period.year
+      );
+    });
+  }, [payrollRecords, selectedEmployee, payrollMonth]);
+
+  // Employee dropdown passes employeeId directly.
+  const handleEmployeeChange = (employeeId) => {
+    setSelectedEmployee(employeeId);
     setMessage("");
 
     const selected = employees.find(
-      (item) => getEmployeeId(item) === value
+      (item) => getEmployeeId(item) === employeeId
     );
 
     if (selected) {
@@ -364,29 +389,27 @@ function GeneratePayroll() {
       setAllowances(String(getEmployeeAllowances(selected)));
       setBonus(String(selected.bonus ?? 0));
       setDeductions(String(getEmployeeDeductions(selected)));
-      setPaidDays(workingDays || "26");
     } else {
       setBasicSalary("");
       setAllowances("0");
       setBonus("0");
       setDeductions("0");
-      setPaidDays(workingDays || "26");
     }
   };
 
-  const handleWorkingDaysChange = (value) => {
-    setWorkingDays(value);
-
-    if (Number(paidDays) > Number(value)) {
-      setPaidDays(value);
-    }
+  const handleMonthChange = (event) => {
+    setPayrollMonth(event.target.value);
+    setMessage("");
   };
 
   const handleGeneratePayroll = async (event) => {
     event.preventDefault();
+
+    if (submitting) return;
+
     setMessage("");
 
-    if (!employee) {
+    if (!selectedEmployee || !employee) {
       setMessageType("error");
       setMessage("Please select an employee.");
       return;
@@ -403,39 +426,32 @@ function GeneratePayroll() {
     }
 
     if (
-      !Number.isFinite(totalWorkingDays) ||
-      !Number.isInteger(totalWorkingDays) ||
-      totalWorkingDays < 1 ||
-      totalWorkingDays > 31 ||
-      !Number.isFinite(totalPaidDays) ||
-      totalPaidDays < 0 ||
-      totalPaidDays > totalWorkingDays
+      !Number.isFinite(bonusAmount) ||
+      !Number.isFinite(deductionAmount) ||
+      bonusAmount < 0 ||
+      deductionAmount < 0
     ) {
       setMessageType("error");
       setMessage(
-        "Paid days must be between 0 and total working days."
+        "Bonus and deductions must be valid non-negative amounts."
       );
       return;
     }
 
-    const salaryValues = [
-      basic,
-      hraAmount,
-      allowanceAmount,
-      bonusAmount,
-      deductionAmount,
-    ];
-
     if (
-      salaryValues.some(
-        (value) => !Number.isFinite(value) || value < 0
-      ) ||
-      deductionAmount > grossSalary
+      !Number.isFinite(basic) ||
+      !Number.isFinite(allowanceAmount) ||
+      basic < 0 ||
+      allowanceAmount < 0
     ) {
       setMessageType("error");
-      setMessage(
-        "Salary amounts must be valid and non-negative. Deductions cannot exceed gross salary."
-      );
+      setMessage("Employee salary details are invalid.");
+      return;
+    }
+
+    if (deductionAmount > grossSalary) {
+      setMessageType("error");
+      setMessage("Deductions cannot exceed gross salary.");
       return;
     }
 
@@ -447,76 +463,106 @@ function GeneratePayroll() {
       return;
     }
 
-    const payload = {
-      employeeId: getEmployeeId(employee),
-      month: period.month,
-      year: period.year,
-      workingDays: totalWorkingDays,
-      paidDays: totalPaidDays,
-      basicSalary: basic,
-      hra: hraAmount,
-      allowances: allowanceAmount,
-      bonus: bonusAmount,
-      deductions: deductionAmount,
-      notes: notes.trim(),
-    };
+    const employeeId = getEmployeeId(employee);
+
+    if (!employeeId) {
+      setMessageType("error");
+      setMessage("Invalid employee ID.");
+      return;
+    }
 
     setSubmitting(true);
 
     try {
-      const response = await fetch(`${PAYROLL_API}/generate`, {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify(payload),
-      });
+      const payload = {
+        employeeId,
+        month: period.month,
+        year: period.year,
+        bonus: bonusAmount,
+        deductions: deductionAmount,
+        remarks: notes.trim(),
+      };
 
-      const responseData = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          getErrorMessage(
-            responseData,
-            "Failed to generate payroll."
-          )
-        );
-      }
+      const response = await api.post(
+        "/payroll/generate",
+        payload
+      );
 
       setMessageType("success");
       setMessage(
-        responseData.message || "Payroll generated successfully!"
+        response.data?.message ||
+          "Payroll generated successfully."
       );
 
-      try {
-        const refreshResponse = await fetch(
-          `${PAYROLL_API}?month=${period.month}&year=${period.year}`,
-          {
-            method: "GET",
-            headers: getHeaders(),
-          }
-        );
-
-        if (refreshResponse.ok) {
-          const refreshedData = await refreshResponse
-            .json()
-            .catch(() => ({}));
-
-          setPayrollRecords(extractArray(refreshedData));
-        }
-      } catch {
-        // Payroll is already saved; retain the success message.
-      }
-
       setNotes("");
+
+      await loadPageData();
     } catch (error) {
       setMessageType("error");
       setMessage(
-        error.message ||
-          "Unable to generate payroll. Please try again."
+        getErrorMessage(
+          error,
+          "An error occurred while generating payroll."
+        )
       );
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleRefresh = async () => {
+    await loadPageData();
+  };
+
+  const periodLabel = useMemo(() => {
+    try {
+      const { month, year } = getPayrollPeriod(payrollMonth);
+
+      return new Date(year, month - 1, 1).toLocaleDateString(
+        "en-IN",
+        {
+          month: "long",
+          year: "numeric",
+        }
+      );
+    } catch {
+      return "";
+    }
+  }, [payrollMonth]);
+
+  const activeEmployees = useMemo(
+    () =>
+      employees.filter(
+        (item) =>
+          String(item.status || "active").toLowerCase() ===
+          "active"
+      ),
+    [employees]
+  );
+
+  const selectedEmployeeDepartment = getDepartmentName(
+    employee?.department
+  );
+
+  const existingPayrollCount = payrollRecords.length;
+
+  const processedCount = payrollRecords.filter((record) =>
+    ["processed", "paid"].includes(
+      String(record.status || "").toLowerCase()
+    )
+  ).length;
+
+  const draftCount = payrollRecords.filter(
+    (record) =>
+      String(record.status || "").toLowerCase() === "draft"
+  ).length;
+
+  const paidCount = payrollRecords.filter(
+    (record) =>
+      String(record.status || "").toLowerCase() === "paid"
+  ).length;
+
+  const currency = companySettings.currency || "INR";
 
   return (
     <div className="generate-payroll-page">
@@ -525,7 +571,9 @@ function GeneratePayroll() {
           <span className="payroll-eyebrow">
             PAYROLL MANAGEMENT
           </span>
+
           <h1>Generate Payroll</h1>
+
           <p>
             Calculate employee salaries and generate monthly payroll
             records.
@@ -544,7 +592,7 @@ function GeneratePayroll() {
           <button
             type="button"
             className="payroll-refresh-btn"
-            onClick={loadPageData}
+            onClick={handleRefresh}
             disabled={loading}
             aria-label="Refresh payroll data"
           >
@@ -556,6 +604,7 @@ function GeneratePayroll() {
         </div>
       </div>
 
+      {/* Company Details */}
       <section
         className="generate-form-card"
         style={{
@@ -599,21 +648,19 @@ function GeneratePayroll() {
               .filter(Boolean)
               .join(" · ")}
           </p>
-
-          {companySettings.gstin && (
-            <small>GSTIN: {companySettings.gstin}</small>
-          )}
         </div>
       </section>
 
+      {/* Summary */}
       <div className="generate-payroll-summary">
         <div className="generate-summary-card">
           <div className="generate-summary-icon blue">
             <FaUsers />
           </div>
+
           <div>
             <span>Total Employees</span>
-            <h3>{loading ? "—" : employees.length}</h3>
+            <h3>{loading ? "—" : activeEmployees.length}</h3>
           </div>
         </div>
 
@@ -621,9 +668,10 @@ function GeneratePayroll() {
           <div className="generate-summary-icon purple">
             <FaCalendarAlt />
           </div>
+
           <div>
             <span>Selected Month</span>
-            <h3>{payrollMonth || "Not selected"}</h3>
+            <h3>{periodLabel || "Not selected"}</h3>
           </div>
         </div>
 
@@ -631,13 +679,15 @@ function GeneratePayroll() {
           <div className="generate-summary-icon green">
             <FaMoneyBillWave />
           </div>
+
           <div>
             <span>Payroll Records</span>
-            <h3>{loading ? "—" : payrollRecords.length}</h3>
+            <h3>{loading ? "—" : existingPayrollCount}</h3>
           </div>
         </div>
       </div>
 
+      {/* Messages */}
       {message && (
         <div
           className={`payroll-notice ${
@@ -650,6 +700,7 @@ function GeneratePayroll() {
           ) : (
             <FaExclamationCircle />
           )}
+
           <span>{message}</span>
         </div>
       )}
@@ -662,8 +713,10 @@ function GeneratePayroll() {
       ) : employees.length === 0 ? (
         <div className="payroll-notice warning">
           <FaExclamationCircle />
+
           <div>
             <strong>No employees found</strong>
+
             <p>
               Add employees first, or check your employee API
               endpoint and backend response.
@@ -676,11 +729,13 @@ function GeneratePayroll() {
           onSubmit={handleGeneratePayroll}
         >
           <div className="generate-form-main">
+            {/* Employee Information */}
             <section className="generate-form-card">
               <div className="generate-card-heading">
                 <div className="generate-heading-icon">
                   <FaUserTie />
                 </div>
+
                 <div>
                   <h2>Employee Information</h2>
                   <p>Select an employee and payroll month.</p>
@@ -703,7 +758,7 @@ function GeneratePayroll() {
                   >
                     <option value="">Choose an employee</option>
 
-                    {employees.map((item, index) => {
+                    {activeEmployees.map((item, index) => {
                       const id = getEmployeeId(item);
 
                       return (
@@ -713,8 +768,11 @@ function GeneratePayroll() {
                           disabled={!id}
                         >
                           {getEmployeeName(item)}
-                          {(item.employeeCode || item.employeeId)
-                            ? ` (${item.employeeCode || item.employeeId})`
+                          {item.employeeCode || item.employeeId
+                            ? ` (${
+                                item.employeeCode ||
+                                item.employeeId
+                              })`
                             : ""}
                         </option>
                       );
@@ -726,62 +784,34 @@ function GeneratePayroll() {
                   <label htmlFor="payrollMonth">
                     Payroll Month <span>*</span>
                   </label>
+
                   <input
                     id="payrollMonth"
                     type="month"
                     value={payrollMonth}
-                    onChange={(event) =>
-                      setPayrollMonth(event.target.value)
-                    }
+                    onChange={handleMonthChange}
                     required
                   />
                 </div>
 
-                <div className="generate-field">
-                  <label htmlFor="workingDays">
-                    Working Days <span>*</span>
-                  </label>
-                  <input
-                    id="workingDays"
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={workingDays}
-                    onChange={(event) =>
-                      handleWorkingDaysChange(event.target.value)
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="generate-field">
-                  <label htmlFor="paidDays">
-                    Paid Days <span>*</span>
-                  </label>
-                  <input
-                    id="paidDays"
-                    type="number"
-                    min="0"
-                    max={workingDays || 31}
-                    value={paidDays}
-                    onChange={(event) =>
-                      setPaidDays(event.target.value)
-                    }
-                    required
-                  />
-                  <small>
-                    Salary is prorated according to paid days.
-                  </small>
+                <div className="generate-field full-width">
+                  <p role="note">
+                    Attendance, half-days, absences, and approved
+                    unpaid leave are calculated by the backend when
+                    payroll is generated. Paid days are not entered
+                    manually here.
+                  </p>
                 </div>
 
                 <div className="generate-field">
                   <label htmlFor="payrollDepartment">
                     Department
                   </label>
+
                   <input
                     id="payrollDepartment"
                     type="text"
-                    value={getDepartmentName(employee?.department)}
+                    value={selectedEmployeeDepartment}
                     placeholder="Not assigned"
                     readOnly
                   />
@@ -791,10 +821,13 @@ function GeneratePayroll() {
                   <label htmlFor="payrollEmployeeId">
                     Employee ID
                   </label>
+
                   <input
                     id="payrollEmployeeId"
                     type="text"
-                    value={employee ? getEmployeeId(employee) : ""}
+                    value={
+                      employee ? getEmployeeId(employee) : ""
+                    }
                     placeholder="Select employee"
                     readOnly
                   />
@@ -804,6 +837,7 @@ function GeneratePayroll() {
                   <label htmlFor="payrollEmail">
                     Email Address
                   </label>
+
                   <input
                     id="payrollEmail"
                     type="email"
@@ -815,15 +849,19 @@ function GeneratePayroll() {
               </div>
             </section>
 
+            {/* Salary Breakdown */}
             <section className="generate-form-card">
               <div className="generate-card-heading">
                 <div className="generate-heading-icon salary-icon">
                   <FaMoneyBillWave />
                 </div>
+
                 <div>
                   <h2>Salary Breakdown</h2>
+
                   <p>
-                    Enter monthly salary components in Indian rupees.
+                    Review the employee's monthly salary and enter
+                    additional payroll adjustments.
                   </p>
                 </div>
               </div>
@@ -831,41 +869,52 @@ function GeneratePayroll() {
               <div className="generate-form-grid">
                 <div className="generate-field">
                   <label htmlFor="basicSalary">
-                    Basic Salary (₹) <span>*</span>
+                    Basic Salary (₹)
                   </label>
+
                   <input
                     id="basicSalary"
                     type="number"
                     min="0"
                     step="0.01"
                     value={basicSalary}
-                    onChange={(event) =>
-                      setBasicSalary(event.target.value)
-                    }
-                    required
+                    readOnly
+                  />
+                </div>
+
+                <div className="generate-field">
+                  <label htmlFor="hra">
+                    House Rent Allowance (₹)
+                  </label>
+
+                  <input
+                    id="hra"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={hraAmount}
+                    readOnly
                   />
                 </div>
 
                 <div className="generate-field">
                   <label htmlFor="allowances">
-                    Allowances (₹)
+                    Other Allowances (₹)
                   </label>
+
                   <input
                     id="allowances"
                     type="number"
                     min="0"
                     step="0.01"
                     value={allowances}
-                    onChange={(event) =>
-                      setAllowances(event.target.value)
-                    }
+                    readOnly
                   />
                 </div>
 
                 <div className="generate-field">
-                  <label htmlFor="bonus">
-                    Bonus / Incentives (₹)
-                  </label>
+                  <label htmlFor="bonus">Bonus (₹)</label>
+
                   <input
                     id="bonus"
                     type="number"
@@ -880,8 +929,9 @@ function GeneratePayroll() {
 
                 <div className="generate-field">
                   <label htmlFor="deductions">
-                    Deductions (₹)
+                    Additional Deductions (₹)
                   </label>
+
                   <input
                     id="deductions"
                     type="number"
@@ -895,129 +945,214 @@ function GeneratePayroll() {
                 </div>
 
                 <div className="generate-field full-width">
-                  <label htmlFor="payrollNotes">
-                    Notes (Optional)
-                  </label>
+                  <label htmlFor="notes">Remarks</label>
+
                   <textarea
-                    id="payrollNotes"
-                    rows="3"
-                    maxLength="1000"
+                    id="notes"
+                    rows={3}
+                    maxLength={1000}
                     value={notes}
                     onChange={(event) =>
                       setNotes(event.target.value)
                     }
-                    placeholder="Add payroll remarks..."
+                    placeholder="Optional payroll remarks..."
                   />
                 </div>
               </div>
             </section>
+
+            {/* Salary Preview */}
+            <section className="generate-form-card">
+              <div className="generate-card-heading">
+                <div className="generate-heading-icon">
+                  <FaCalculator />
+                </div>
+
+                <div>
+                  <h2>Salary Preview</h2>
+
+                  <p>
+                    Estimated figures before attendance-based
+                    deductions are applied by the backend.
+                  </p>
+                </div>
+              </div>
+
+              <div className="generate-salary-preview">
+                <div className="generate-salary-row">
+                  <span>Basic Salary</span>
+                  <strong>
+                    {formatCurrency(basic, currency)}
+                  </strong>
+                </div>
+
+                <div className="generate-salary-row">
+                  <span>House Rent Allowance</span>
+                  <strong>
+                    {formatCurrency(hraAmount, currency)}
+                  </strong>
+                </div>
+
+                <div className="generate-salary-row">
+                  <span>Other Allowances</span>
+                  <strong>
+                    {formatCurrency(allowanceAmount, currency)}
+                  </strong>
+                </div>
+
+                <div className="generate-salary-row">
+                  <span>Bonus</span>
+                  <strong>
+                    {formatCurrency(bonusAmount, currency)}
+                  </strong>
+                </div>
+
+                <div className="generate-salary-row">
+                  <span>Gross Salary</span>
+                  <strong>
+                    {formatCurrency(grossSalary, currency)}
+                  </strong>
+                </div>
+
+                <div className="generate-salary-row deduction">
+                  <span>Additional Deductions</span>
+
+                  <strong>
+                    −{formatCurrency(deductionAmount, currency)}
+                  </strong>
+                </div>
+
+                <div className="generate-salary-row net">
+                  <span>
+                    Estimated Net Before Attendance Deductions
+                  </span>
+
+                  <strong>
+                    {formatCurrency(netSalary, currency)}
+                  </strong>
+                </div>
+              </div>
+
+              <p className="generate-preview-note">
+                Final net salary may be lower after the backend
+                calculates absence, half-day, and approved
+                unpaid-leave deductions. Confirm the generated
+                payroll record before processing it.
+              </p>
+            </section>
+
+            {/* Form Actions */}
+            <div className="generate-payroll-actions">
+              <button
+                type="button"
+                className="payroll-secondary-btn"
+                onClick={() => navigate("/admin/payroll")}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="generate-submit-btn"
+                disabled={
+                  submitting ||
+                  loading ||
+                  !selectedEmployee ||
+                  alreadyGenerated
+                }
+              >
+                {submitting ? (
+                  <>
+                    <FaSyncAlt className="payroll-spin" />
+                    Generating Payroll...
+                  </>
+                ) : alreadyGenerated ? (
+                  <>
+                    <FaExclamationCircle />
+                    Payroll Already Exists
+                  </>
+                ) : (
+                  <>
+                    <FaSave />
+                    Generate Payroll
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
-          <aside className="generate-payroll-preview">
-            <div className="generate-preview-top">
-              <div className="generate-preview-icon">
-                <FaCalculator />
-              </div>
-              <h2>Salary Summary</h2>
-              <p>
-                Estimated salary for the selected employee.
-              </p>
-            </div>
+          {/* Sidebar */}
+          <aside className="generate-payroll-sidebar">
+            <section className="generate-form-card">
+              <div className="generate-card-heading">
+                <div className="generate-heading-icon">
+                  <FaCalendarAlt />
+                </div>
 
-            <div className="generate-preview-employee">
-              <span>Employee</span>
-              <strong>
-                {employee
-                  ? getEmployeeName(employee)
-                  : "Not selected"}
-              </strong>
-              <small>
-                {employee
-                  ? getEmployeeId(employee)
-                  : "Select an employee"}
-              </small>
-            </div>
-
-            <div className="generate-preview-lines">
-              <div>
-                <span>Basic salary after attendance</span>
-                <strong>{formatCurrency(proratedBasic)}</strong>
+                <div>
+                  <h2>Payroll Status</h2>
+                  <p>{periodLabel}</p>
+                </div>
               </div>
 
-              <div>
-                <span>HRA after attendance</span>
-                <strong>{formatCurrency(proratedHra)}</strong>
+              <div className="generate-status-list">
+                <div>
+                  <span>Total Records</span>
+                  <strong>{existingPayrollCount}</strong>
+                </div>
+
+                <div>
+                  <span>Draft</span>
+                  <strong>{draftCount}</strong>
+                </div>
+
+                <div>
+                  <span>Processed / Paid</span>
+                  <strong>{processedCount}</strong>
+                </div>
+
+                <div>
+                  <span>Paid</span>
+                  <strong>{paidCount}</strong>
+                </div>
               </div>
 
-              <div>
-                <span>Allowances after attendance</span>
-                <strong>
-                  {formatCurrency(proratedAllowances)}
-                </strong>
-              </div>
+              <button
+                type="button"
+                className="payroll-secondary-btn full-width"
+                onClick={() =>
+                  navigate("/admin/payroll/history")
+                }
+              >
+                View Payroll History
+              </button>
+            </section>
 
-              <div>
-                <span>Bonus / Incentives</span>
-                <strong>{formatCurrency(bonusAmount)}</strong>
-              </div>
+            <section className="generate-form-card">
+              <h2>Important Notes</h2>
 
-              <div className="gross-line">
-                <span>Gross salary</span>
-                <strong>{formatCurrency(grossSalary)}</strong>
-              </div>
+              <ul className="generate-payroll-notes">
+                <li>
+                  Select the correct employee and payroll month.
+                </li>
 
-              <div className="deduction-line">
-                <span>Deductions</span>
-                <strong>
-                  − {formatCurrency(deductionAmount)}
-                </strong>
-              </div>
-            </div>
+                <li>
+                  Employee salary components come from the saved
+                  employee record.
+                </li>
 
-            <div className="generate-preview-total">
-              <span>Net Payable Salary</span>
-              <strong>{formatCurrency(netSalary)}</strong>
-            </div>
+                <li>
+                  Attendance deductions are calculated by the
+                  backend.
+                </li>
 
-            <p className="generate-preview-note">
-              Preview only. Verify salary and attendance details
-              before generating payroll.
-            </p>
-
-            {alreadyGenerated && (
-              <div className="payroll-inline-warning">
-                <FaExclamationCircle />
-                Payroll already exists for this employee and month.
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="generate-payroll-submit"
-              disabled={
-                submitting ||
-                loading ||
-                !employee ||
-                alreadyGenerated ||
-                netSalary < 0
-              }
-            >
-              <FaSave />
-              {submitting
-                ? "Generating..."
-                : "Generate Payroll"}
-            </button>
-
-            <button
-              type="button"
-              className="generate-payroll-cancel"
-              onClick={() =>
-                navigate("/admin/payroll/history")
-              }
-              disabled={submitting}
-            >
-              Cancel
-            </button>
+                <li>
+                  Generated payroll should be reviewed before it
+                  is processed or marked as paid.
+                </li>
+              </ul>
+            </section>
           </aside>
         </form>
       )}

@@ -12,12 +12,14 @@ import {
   FaBuilding,
   FaTimes,
   FaChevronRight,
+  FaClipboardList,
 } from "react-icons/fa";
 
 const defaultMenuItems = [
   { label: "Dashboard", path: "/admin/dashboard", icon: FaThLarge },
   { label: "Employees", path: "/admin/employees", icon: FaUsers },
   { label: "Attendance", path: "/admin/attendance", icon: FaCalendarCheck },
+  { label: "Leave Management", path: "/admin/leaves", icon: FaClipboardList },
   { label: "Payroll", path: "/admin/payroll/history", icon: FaMoneyBillWave },
   { label: "Salary History", path: "/admin/salary-history", icon: FaWallet },
   { label: "Reports", path: "/admin/reports/payroll", icon: FaChartBar },

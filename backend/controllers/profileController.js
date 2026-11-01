@@ -15,9 +15,12 @@ const getMyProfile = async (req, res, next) => {
     }
 
     return res.status(200).json({
-      success: true,
-      user,
-    });
+  success: true,
+  user: {
+    ...user.toObject(),
+    employeeId: req.user.employeeId || null,
+  },
+});
   } catch (error) {
     next(error);
   }
@@ -136,10 +139,13 @@ const updateMyProfile = async (req, res, next) => {
     );
 
     return res.status(200).json({
-      success: true,
-      message: "Profile updated successfully.",
-      user: safeUser,
-    });
+  success: true,
+  message: "Profile updated successfully.",
+  user: {
+    ...safeUser.toObject(),
+    employeeId: req.user.employeeId || null,
+  },
+});
   } catch (error) {
     if (error.code === 11000 && error.keyPattern?.email) {
       return res.status(409).json({

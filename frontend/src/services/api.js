@@ -1,26 +1,59 @@
+
 import axios from "axios";
 
 const API_BASE_URL = (
   process.env.REACT_APP_API_URL ||
-  "https://salary-slip-backend-rjgj.onrender.com/api"
+  "http://localhost:5000/api"
 ).replace(/\/+$/, "");
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Attach login token to API requests.
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
+// CSRF token cache (not an authentication token).
+let csrfToken = null;
+let csrfTokenPromise = null;
 
-    if (token) {
+// Fetch CSRF token from backend.
+export const refreshCsrfToken = async () => {
+  if (!csrfTokenPromise) {
+    csrfTokenPromise = api
+      .get("/auth/csrf-token")
+      .then((response) => {
+        const token = response?.data?.csrfToken;
+
+        if (!token) {
+          throw new Error("Unable to obtain CSRF token.");
+        }
+
+        csrfToken = token;
+        return token;
+      })
+      .finally(() => {
+        csrfTokenPromise = null;
+      });
+  }
+
+  return csrfTokenPromise;
+};
+
+// Attach CSRF token to state-changing requests.
+api.interceptors.request.use(
+  async (config) => {
+    const method = (config.method || "get").toLowerCase();
+
+    const safeMethods = ["get", "head", "options"];
+
+    if (!safeMethods.includes(method)) {
+      const token = csrfToken || await refreshCsrfToken();
+
       config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers["x-csrf-token"] = token;
     }
 
     return config;
@@ -33,17 +66,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    const url = error?.config?.url || "";
+    const message = error?.response?.data?.message || "";
 
-    const isAuthRequest =
-      url.includes("/auth/login") ||
-      url.includes("/auth/register") ||
-      url.includes("/auth/forgot-password") ||
-      url.includes("/auth/reset-password");
-
-    if (status === 401 && !isAuthRequest) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+    // Allow the next request to fetch a fresh CSRF token.
+    if (
+      status === 403 &&
+      /csrf|origin/i.test(message)
+    ) {
+      csrfToken = null;
     }
 
     return Promise.reject(error);

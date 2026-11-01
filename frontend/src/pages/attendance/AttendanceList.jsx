@@ -28,20 +28,32 @@ function getRecordDate(record) {
 
   const value = String(record.date);
 
-  // MongoDB date values are normally returned as ISO strings.
-  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-    return value.slice(0, 10);
+  // Date-only string: keep the selected calendar date unchanged.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
   }
 
   const parsed = new Date(value);
 
   if (Number.isNaN(parsed.getTime())) return "";
 
-  return [
-    parsed.getFullYear(),
-    String(parsed.getMonth() + 1).padStart(2, "0"),
-    String(parsed.getDate()).padStart(2, "0"),
-  ].join("-");
+  // Convert timestamps to the India calendar date.
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(parsed);
+
+  const values = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  }
+
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function formatDate(value) {

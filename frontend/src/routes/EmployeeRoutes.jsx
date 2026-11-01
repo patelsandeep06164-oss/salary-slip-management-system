@@ -1,7 +1,9 @@
+
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import EmployeeLayout from "../layouts/EmployeeLayout";
+import ProtectedRoute from "../components/common/ProtectedRoute";
 
 // Employee Dashboard
 import EmployeeDashboard from "../pages/employee/EmployeeDashboard";
@@ -9,6 +11,9 @@ import EmployeeDashboard from "../pages/employee/EmployeeDashboard";
 // Employee Profile
 import MyProfile from "../pages/employee/MyProfile";
 import ChangePassword from "../pages/employee/ChangePassword";
+
+// Employee Attendance
+import EmployeeAttendance from "../pages/employee/EmployeeAttendance";
 
 // Leave Management
 import ApplyLeave from "../pages/leave/ApplyLeave";
@@ -25,25 +30,35 @@ import NotFound from "../pages/NotFound";
 function EmployeeRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<EmployeeLayout />}>
-        {/* Default Employee Page */}
-        <Route
-          index
-          element={<Navigate to="dashboard" replace />}
-        />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute allowedRole="employee">
+            <EmployeeLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
 
-        {/* Dashboard */}
         <Route
           path="dashboard"
           element={<EmployeeDashboard />}
         />
 
-        {/* Profile */}
-        <Route path="profile" element={<MyProfile />} />
+        <Route
+          path="profile"
+          element={<MyProfile />}
+        />
 
         <Route
           path="change-password"
           element={<ChangePassword />}
+        />
+
+        {/* Employee Attendance */}
+        <Route
+          path="attendance"
+          element={<EmployeeAttendance />}
         />
 
         {/* Leave Management */}
@@ -79,7 +94,6 @@ function EmployeeRoutes() {
           element={<SalaryHistory />}
         />
 
-        {/* Unknown Employee URL */}
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

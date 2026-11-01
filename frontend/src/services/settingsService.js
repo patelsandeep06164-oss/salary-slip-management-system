@@ -6,17 +6,14 @@ const settingsService = {
   // ------------------------------
 
   async getCompanySettings() {
-    const response = await api.get("/settings/company");
-    return response.data;
-  },
+  const response = await api.get("/settings");
+  return response.data;
+},
 
-  async updateCompanySettings(settings) {
-    const response = await api.put(
-      "/settings/company",
-      settings
-    );
-    return response.data;
-  },
+ async updateCompanySettings(settingsData) {
+  const response = await api.put("/settings", settingsData);
+  return response.data;
+},
 
   // ------------------------------
   // Email Settings

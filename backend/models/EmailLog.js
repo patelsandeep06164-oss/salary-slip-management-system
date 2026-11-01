@@ -56,11 +56,37 @@ const emailLogSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Atomic email processing lock
+    lockToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    lockedAt: {
+      type: Date,
+      default: null,
+    },
+    lockExpiresAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 emailLogSchema.index({ status: 1, nextRetryAt: 1 });
 emailLogSchema.index({ salarySlip: 1, createdAt: -1 });
+emailLogSchema.index({ status: 1, lockExpiresAt: 1 });
+emailLogSchema.index(
+  { salarySlip: 1, emailType: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      emailType: "salary-slip",
+      salarySlip: { $type: "objectId" },
+    },
+  }
+);
 
 module.exports = mongoose.model("EmailLog", emailLogSchema);

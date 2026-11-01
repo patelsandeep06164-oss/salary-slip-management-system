@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const cookieParser = require("cookie-parser");
 
 const app = express();
 
@@ -22,29 +23,35 @@ const emailRoutes = require("./routes/emailRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+const adminApprovalRoutes = require("./routes/adminApprovalRoutes");
 
 // Security headers
 app.use(helmet());
 
-// CORS configuration
+// Cookie parser
+app.use(cookieParser());
 
+// CORS configuration
+// CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
   "http://localhost:3001",
   "http://127.0.0.1:3001",
+  "http://localhost:3002",
+  "http://127.0.0.1:3002",
+
   ...(process.env.CLIENT_URL || "")
     .split(",")
     .map((url) => url.trim().replace(/\/+$/, ""))
     .filter(Boolean),
 ];
 
-
 // CORS must run before API routes
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without Origin, e.g. server-to-server requests.
+      // Allow requests without Origin (server-to-server).
       if (!origin) {
         return callback(null, true);
       }
@@ -56,17 +63,39 @@ app.use(
       }
 
       console.error(`CORS blocked origin: ${origin}`);
-      return callback(new Error(`CORS blocked origin: ${origin}`));
+
+      return callback(
+        new Error(`CORS blocked origin: ${origin}`)
+      );
     },
+
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-CSRF-Token",
+    ],
   })
 );
 
 // Request body limits
 app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: "1mb",
+  })
+);
 
 // API rate limiter
 app.use(
@@ -101,6 +130,7 @@ app.use("/api/emails", emailRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/admin", adminApprovalRoutes);
 
 // 404 handler
 app.use((req, res) => {

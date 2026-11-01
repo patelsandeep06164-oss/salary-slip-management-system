@@ -16,9 +16,7 @@ import {
   FaFilter,
   FaInbox,
 } from "react-icons/fa";
-
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "https://salary-slip-backend-rjgj.onrender.com/api";
+import api, { getApiError } from "../../services/api";
 
 const CATEGORY_OPTIONS = [
   { value: "all", label: "All notifications" },
@@ -26,6 +24,7 @@ const CATEGORY_OPTIONS = [
   { value: "salary-slip", label: "Salary Slips" },
   { value: "email", label: "Email" },
   { value: "system", label: "System" },
+  { value: "admin-approval", label: "Admin Approval" },
 ];
 
 function getCategoryIcon(category) {
@@ -36,6 +35,8 @@ function getCategoryIcon(category) {
       return <FaFileInvoiceDollar />;
     case "email":
       return <FaEnvelope />;
+    case "admin-approval":
+      return <FaExclamationTriangle />;
     default:
       return <FaCog />;
   }
@@ -78,12 +79,17 @@ function Notifications() {
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const [markingAll, setMarkingAll] = useState(false);
+  const [approvalProcessingId, setApprovalProcessingId] = useState(null);
+
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
   const [page] = useState(1);
+
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -91,14 +97,10 @@ function Notifications() {
     totalPages: 1,
   });
 
-  const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem("token");
-
-    return {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  }, []);
+  // ==========================================
+  // FETCH NOTIFICATIONS
+  // Uses HttpOnly cookie authentication
+  // ==========================================
 
   const fetchNotifications = useCallback(
     async (showRefresh = false, requestedPage = page) => {
@@ -112,38 +114,25 @@ function Notifications() {
       setSuccessMessage("");
 
       try {
-        const token = localStorage.getItem("token");
+        const response = await api.get("/notifications", {
+          params: {
+            page: requestedPage,
+            limit: 100,
+          },
+        });
 
-        if (!token) {
-          setNotifications([]);
-          setUnreadCount(0);
-          setError("Your login session was not found. Please log in again.");
-          return;
-        }
-
-        const response = await fetch(
-          `${API_BASE_URL}/notifications?page=${requestedPage}&limit=100`,
-          {
-            method: "GET",
-            headers: getAuthHeaders(),
-          }
-        );
-
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              `Unable to load notifications (${response.status}).`
-          );
-        }
+        const data = response.data || {};
 
         const items = Array.isArray(data.notifications)
           ? data.notifications
           : [];
 
         setNotifications(items);
-        setUnreadCount(Math.max(0, Number(data.unreadCount) || 0));
+
+        setUnreadCount(
+          Math.max(0, Number(data.unreadCount) || 0)
+        );
+
         setPagination(
           data.pagination || {
             page: requestedPage,
@@ -153,43 +142,58 @@ function Notifications() {
           }
         );
 
-        window.dispatchEvent(new Event("notifications-updated"));
+        window.dispatchEvent(
+          new Event("notifications-updated")
+        );
       } catch (err) {
+        setNotifications([]);
+        setUnreadCount(0);
+
         setError(
-          err.message ||
-            "Notifications load nahi ho paayi. Backend server check karein."
+          getApiError(
+            err,
+            "Notifications load nahi ho paayi."
+          )
         );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [getAuthHeaders, page]
+    [page]
   );
+
+  // ==========================================
+  // INITIAL LOAD
+  // ==========================================
 
   useEffect(() => {
     fetchNotifications(false, page);
   }, [fetchNotifications, page]);
 
+  // ==========================================
+  // MARK SINGLE NOTIFICATION AS READ
+  // ==========================================
+
   const markAsRead = async (notificationId) => {
+    const target = notifications.find(
+      (item) => item._id === notificationId
+    );
+
+    if (!target || target.isRead) return;
+
     setProcessingId(notificationId);
     setError("");
     setSuccessMessage("");
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/notifications/${notificationId}/read`,
-        {
-          method: "PATCH",
-          headers: getAuthHeaders(),
-        }
+      const response = await api.patch(
+        `/notifications/${notificationId}/read`
       );
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data.message || "Could not mark notification as read.");
-      }
+      const readAt =
+        response.data?.notification?.readAt ||
+        new Date().toISOString();
 
       setNotifications((current) =>
         current.map((item) =>
@@ -197,22 +201,38 @@ function Notifications() {
             ? {
                 ...item,
                 isRead: true,
-                readAt: data.notification?.readAt || new Date().toISOString(),
+                readAt,
               }
             : item
         )
       );
 
-      setUnreadCount((current) => Math.max(0, current - 1));
-      setSuccessMessage("Notification marked as read.");
+      setUnreadCount((current) =>
+        Math.max(0, current - 1)
+      );
 
-      window.dispatchEvent(new Event("notifications-updated"));
+      setSuccessMessage(
+        "Notification marked as read."
+      );
+
+      window.dispatchEvent(
+        new Event("notifications-updated")
+      );
     } catch (err) {
-      setError(err.message || "Could not update notification.");
+      setError(
+        getApiError(
+          err,
+          "Could not update notification."
+        )
+      );
     } finally {
       setProcessingId(null);
     }
   };
+
+  // ==========================================
+  // MARK ALL NOTIFICATIONS AS READ
+  // ==========================================
 
   const markAllAsRead = async () => {
     if (unreadCount === 0 || markingAll) return;
@@ -222,35 +242,114 @@ function Notifications() {
     setSuccessMessage("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
-        method: "PATCH",
-        headers: getAuthHeaders(),
-      });
+      await api.patch("/notifications/read-all");
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data.message || "Could not mark all as read.");
-      }
+      const readAt = new Date().toISOString();
 
       setNotifications((current) =>
         current.map((item) => ({
           ...item,
           isRead: true,
-          readAt: item.readAt || new Date().toISOString(),
+          readAt: item.readAt || readAt,
         }))
       );
 
       setUnreadCount(0);
-      setSuccessMessage("All notifications marked as read.");
 
-      window.dispatchEvent(new Event("notifications-updated"));
+      setSuccessMessage(
+        "All notifications marked as read."
+      );
+
+      window.dispatchEvent(
+        new Event("notifications-updated")
+      );
     } catch (err) {
-      setError(err.message || "Could not update notifications.");
+      setError(
+        getApiError(
+          err,
+          "Could not update notifications."
+        )
+      );
     } finally {
       setMarkingAll(false);
     }
   };
+
+  // ==========================================
+  // ADMIN APPROVAL / REJECTION
+  // ==========================================
+
+  const handleAdminApproval = async (item, action) => {
+    const adminId = item?.metadata?.adminId;
+
+    if (!adminId) {
+      setError(
+        "Admin registration details are missing."
+      );
+      return;
+    }
+
+    if (approvalProcessingId !== null) return;
+
+    const actionLabel =
+      action === "approve" ? "approve" : "reject";
+
+    const confirmed = window.confirm(
+      `Are you sure you want to ${actionLabel} this Admin registration?`
+    );
+
+    if (!confirmed) return;
+
+    setApprovalProcessingId(item._id);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      // Approve or reject the pending Admin.
+      await api.patch(
+        `/admin/approvals/${adminId}/${action}`
+      );
+
+      // Approval/rejection has succeeded.
+      // Mark its notification as read separately.
+      try {
+        await api.patch(
+          `/notifications/${item._id}/read`
+        );
+      } catch (readError) {
+        console.error(
+          "Could not mark Admin approval notification as read:",
+          readError
+        );
+      }
+
+      setSuccessMessage(
+        action === "approve"
+          ? "Admin registration approved successfully."
+          : "Admin registration rejected successfully."
+      );
+
+      // Refresh notifications after the action.
+      await fetchNotifications(false, page);
+
+      window.dispatchEvent(
+        new Event("notifications-updated")
+      );
+    } catch (err) {
+      setError(
+        getApiError(
+          err,
+          `Could not ${actionLabel} Admin registration.`
+        )
+      );
+    } finally {
+      setApprovalProcessingId(null);
+    }
+  };
+
+  // ==========================================
+  // FILTER NOTIFICATIONS
+  // ==========================================
 
   const filteredNotifications = useMemo(() => {
     const searchText = search.trim().toLowerCase();
@@ -258,22 +357,42 @@ function Notifications() {
     return notifications.filter((item) => {
       const matchesSearch =
         !searchText ||
-        String(item.title || "").toLowerCase().includes(searchText) ||
-        String(item.message || "").toLowerCase().includes(searchText);
+        String(item.title || "")
+          .toLowerCase()
+          .includes(searchText) ||
+        String(item.message || "")
+          .toLowerCase()
+          .includes(searchText);
 
       const matchesCategory =
-        category === "all" || item.category === category;
+        category === "all" ||
+        item.category === category;
 
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "unread" && !item.isRead) ||
         (statusFilter === "read" && item.isRead);
 
-      return matchesSearch && matchesCategory && matchesStatus;
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesStatus
+      );
     });
-  }, [notifications, search, category, statusFilter]);
+  }, [
+    notifications,
+    search,
+    category,
+    statusFilter,
+  ]);
 
-  const unreadOnPage = notifications.filter((item) => !item.isRead).length;
+  const unreadOnPage = notifications.filter(
+    (item) => !item.isRead
+  ).length;
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <div className="notifications-page">
@@ -779,7 +898,9 @@ function Notifications() {
         }
 
         @keyframes notifications-spin {
-          to { transform: rotate(360deg); }
+          to {
+            transform: rotate(360deg);
+          }
         }
 
         .notifications-footer {
@@ -935,27 +1056,45 @@ function Notifications() {
         }
       `}</style>
 
+      {/* PAGE HEADER */}
+
       <section className="notifications-hero">
         <div className="notifications-hero-content">
           <h1>Notifications</h1>
+
           <p>
             Keep track of payroll activity, salary slips, email updates and
             important system events.
           </p>
         </div>
-        <div className="notifications-hero-icon" aria-hidden="true">
+
+        <div
+          className="notifications-hero-icon"
+          aria-hidden="true"
+        >
           <FaBell />
         </div>
       </section>
 
-      <section className="notifications-stats" aria-label="Notification summary">
+      {/* NOTIFICATION STATISTICS */}
+
+      <section
+        className="notifications-stats"
+        aria-label="Notification summary"
+      >
         <div className="notifications-stat">
           <div className="notifications-stat-icon">
             <FaBell />
           </div>
+
           <div>
-            <span className="notifications-stat-number">{pagination.total}</span>
-            <span className="notifications-stat-label">Total notifications</span>
+            <span className="notifications-stat-number">
+              {pagination.total}
+            </span>
+
+            <span className="notifications-stat-label">
+              Total notifications
+            </span>
           </div>
         </div>
 
@@ -963,9 +1102,15 @@ function Notifications() {
           <div className="notifications-stat-icon">
             <FaEnvelope />
           </div>
+
           <div>
-            <span className="notifications-stat-number">{unreadCount}</span>
-            <span className="notifications-stat-label">Unread notifications</span>
+            <span className="notifications-stat-number">
+              {unreadCount}
+            </span>
+
+            <span className="notifications-stat-label">
+              Unread notifications
+            </span>
           </div>
         </div>
 
@@ -973,22 +1118,31 @@ function Notifications() {
           <div className="notifications-stat-icon">
             <FaCheckDouble />
           </div>
+
           <div>
             <span className="notifications-stat-number">
               {Math.max(0, pagination.total - unreadCount)}
             </span>
-            <span className="notifications-stat-label">Read notifications</span>
+
+            <span className="notifications-stat-label">
+              Read notifications
+            </span>
           </div>
         </div>
       </section>
+
+      {/* NOTIFICATION PANEL */}
 
       <section className="notifications-panel">
         <div className="notifications-panel-header">
           <div className="notifications-panel-heading">
             <h2>Recent activity</h2>
+
             <p>
               {unreadCount > 0
-                ? `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}.`
+                ? `You have ${unreadCount} unread notification${
+                    unreadCount === 1 ? "" : "s"
+                  }.`
                 : "You are all caught up."}
             </p>
           </div>
@@ -1000,7 +1154,12 @@ function Notifications() {
               onClick={() => fetchNotifications(true, page)}
               disabled={refreshing || loading}
             >
-              <FaSyncAlt className={refreshing ? "notifications-spinner" : ""} />
+              <FaSyncAlt
+                className={
+                  refreshing ? "notifications-spinner" : ""
+                }
+              />
+
               {refreshing ? "Refreshing..." : "Refresh"}
             </button>
 
@@ -1011,34 +1170,48 @@ function Notifications() {
               disabled={unreadCount === 0 || markingAll}
             >
               <FaCheckDouble />
-              {markingAll ? "Updating..." : "Mark all as read"}
+
+              {markingAll
+                ? "Updating..."
+                : "Mark all as read"}
             </button>
           </div>
         </div>
 
+        {/* FILTERS */}
+
         <div className="notifications-filters">
           <label className="notifications-search">
             <FaSearch />
+
             <input
               type="search"
               className="notifications-control"
               placeholder="Search notifications..."
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
               aria-label="Search notifications"
             />
           </label>
 
           <label>
             <span className="sr-only" />
+
             <select
               className="notifications-control"
               value={category}
-              onChange={(event) => setCategory(event.target.value)}
+              onChange={(event) =>
+                setCategory(event.target.value)
+              }
               aria-label="Filter by category"
             >
               {CATEGORY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option
+                  key={option.value}
+                  value={option.value}
+                >
                   {option.label}
                 </option>
               ))}
@@ -1047,10 +1220,13 @@ function Notifications() {
 
           <label>
             <span className="sr-only" />
+
             <select
               className="notifications-control"
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              onChange={(event) =>
+                setStatusFilter(event.target.value)
+              }
               aria-label="Filter by read status"
             >
               <option value="all">All statuses</option>
@@ -1060,41 +1236,65 @@ function Notifications() {
           </label>
         </div>
 
+        {/* ERROR MESSAGE */}
+
         {error && (
-          <div className="notifications-message notifications-message-error" role="alert">
+          <div
+            className="notifications-message notifications-message-error"
+            role="alert"
+          >
             <FaExclamationTriangle />
             <span>{error}</span>
           </div>
         )}
 
+        {/* SUCCESS MESSAGE */}
+
         {successMessage && (
-          <div className="notifications-message notifications-message-success" role="status">
+          <div
+            className="notifications-message notifications-message-success"
+            role="status"
+          >
             <FaCheckCircle />
             <span>{successMessage}</span>
           </div>
         )}
 
+        {/* LOADING */}
+
         {loading ? (
           <div className="notifications-state">
-            <FaSyncAlt className="notifications-spinner" size={24} />
+            <FaSyncAlt
+              className="notifications-spinner"
+              size={24}
+            />
+
             <h3>Loading notifications...</h3>
-            <p>Please wait while we fetch the latest updates.</p>
+
+            <p>
+              Please wait while we fetch the latest updates.
+            </p>
           </div>
         ) : filteredNotifications.length === 0 ? (
+          /* EMPTY STATE */
+
           <div className="notifications-state">
             <div className="notifications-state-icon">
               <FaInbox />
             </div>
+
             <h3>
               {notifications.length === 0
                 ? "No notifications yet"
                 : "No matching notifications"}
             </h3>
+
             <p>
               {notifications.length === 0
-                ? "Payroll and email notifications will appear here when the backend creates them."
+                ? "Admin approvals, payroll, salary slip and email notifications will appear here when the backend creates them."
                 : "Try changing your search text or filters."}
             </p>
+
             {notifications.length > 0 && (
               <button
                 type="button"
@@ -1111,15 +1311,26 @@ function Notifications() {
             )}
           </div>
         ) : (
+          /* NOTIFICATION LIST */
+
           <div className="notifications-list">
             {filteredNotifications.map((item) => (
               <article
                 key={item._id}
-                className={`notification-item ${item.isRead ? "read" : "unread"}`}
+                className={`notification-item ${
+                  item.isRead ? "read" : "unread"
+                }`}
               >
-                <div className="notification-category-icon" aria-hidden="true">
+                {/* CATEGORY ICON */}
+
+                <div
+                  className="notification-category-icon"
+                  aria-hidden="true"
+                >
                   {getCategoryIcon(item.category)}
                 </div>
+
+                {/* NOTIFICATION DETAILS */}
 
                 <div className="notification-content">
                   <div className="notification-title-row">
@@ -1129,7 +1340,11 @@ function Notifications() {
 
                     <span
                       className={`notification-status notification-status-${
-                        ["success", "warning", "error"].includes(item.type)
+                        [
+                          "success",
+                          "warning",
+                          "error",
+                        ].includes(item.type)
                           ? item.type
                           : "info"
                       }`}
@@ -1152,15 +1367,74 @@ function Notifications() {
                   <div className="notification-meta">
                     <span className="notification-meta-category">
                       {getCategoryIcon(item.category)}
-                      {String(item.category || "system").replace("-", " ")}
+
+                      {String(
+                        item.category || "system"
+                      ).replace("-", " ")}
                     </span>
+
                     <span aria-hidden="true">•</span>
-                    <span>{formatDate(item.createdAt)}</span>
+
+                    <span>
+                      {formatDate(item.createdAt)}
+                    </span>
                   </div>
                 </div>
 
+                {/* ACTION BUTTONS */}
+
                 <div className="notification-item-actions">
-                  {item.isRead ? (
+                  {item.category === "admin-approval" &&
+                  item.metadata?.adminId &&
+                  item.metadata?.status === "pending" ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "8px",
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      {/* APPROVE ADMIN */}
+
+                      <button
+                        type="button"
+                        className="notifications-button notifications-button-primary"
+                        onClick={() =>
+                          handleAdminApproval(item, "approve")
+                        }
+                        disabled={
+                          approvalProcessingId !== null
+                        }
+                      >
+                        <FaCheckCircle />
+
+                        {approvalProcessingId === item._id
+                          ? "Processing..."
+                          : "Approve"}
+                      </button>
+
+                      {/* REJECT ADMIN */}
+
+                      <button
+                        type="button"
+                        className="notifications-button"
+                        onClick={() =>
+                          handleAdminApproval(item, "reject")
+                        }
+                        disabled={
+                          approvalProcessingId !== null
+                        }
+                        style={{
+                          color: "#c62828",
+                          borderColor: "#f1caca",
+                        }}
+                      >
+                        <FaTimesCircle />
+                        Reject
+                      </button>
+                    </div>
+                  ) : item.isRead ? (
                     <span className="notification-read-label">
                       <FaCheck />
                       Read
@@ -1170,10 +1444,16 @@ function Notifications() {
                       type="button"
                       className="notification-read-button"
                       onClick={() => markAsRead(item._id)}
-                      disabled={processingId === item._id || markingAll}
+                      disabled={
+                        processingId === item._id ||
+                        markingAll
+                      }
                     >
                       <FaCheck />
-                      {processingId === item._id ? "Saving..." : "Mark as read"}
+
+                      {processingId === item._id
+                        ? "Saving..."
+                        : "Mark as read"}
                     </button>
                   )}
                 </div>
@@ -1182,11 +1462,17 @@ function Notifications() {
           </div>
         )}
 
+        {/* FOOTER */}
+
         <div className="notifications-footer">
           <span>
-            Showing {filteredNotifications.length} of {pagination.total} notifications
+            Showing {filteredNotifications.length} of{" "}
+            {pagination.total} notifications
           </span>
-          <span>Unread: {unreadOnPage}</span>
+
+          <span>
+            Unread: {unreadOnPage}
+          </span>
         </div>
       </section>
     </div>

@@ -42,13 +42,7 @@ function getEmployeeName(employee) {
   );
 }
 
-function getDepartmentId(department) {
-  if (department && typeof department === "object") {
-    department = department._id || department.id || "";
-  }
 
-  return String(department || "").trim();
-}
 
 function getDepartmentName(department, departments = []) {
   if (department && typeof department === "object") {

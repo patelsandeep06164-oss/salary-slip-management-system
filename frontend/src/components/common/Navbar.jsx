@@ -27,26 +27,38 @@ function Navbar({
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
 
-  const name = user?.name || "Administrator";
+  // Identify the logged-in user's role.
+  const normalizedRole = String(user?.role || "")
+    .trim()
+    .toLowerCase();
 
-  const role = user?.role
-    ? String(user.role).charAt(0).toUpperCase() +
-      String(user.role).slice(1)
-    : "Administrator";
+  const isEmployee = normalizedRole === "employee";
+
+  const name =
+    user?.name ||
+    user?.fullName ||
+    (isEmployee ? "Employee" : "Administrator");
+
+  const role = isEmployee ? "Employee" : "Administrator";
+
+  const dashboardPath = isEmployee
+    ? "/employee/dashboard"
+    : "/admin/dashboard";
+
+  const portalLabel = isEmployee
+    ? "EMPLOYEE PORTAL"
+    : "ADMINISTRATION";
 
   const initials =
-    name
+    String(name)
       .split(/\s+/)
       .filter(Boolean)
       .slice(0, 2)
       .map((part) => part.charAt(0))
       .join("")
-      .toUpperCase() || "AD";
+      .toUpperCase() || "U";
 
-  const unreadCount = Math.max(
-    0,
-    Number(notificationCount) || 0
-  );
+  const unreadCount = Math.max(0, Number(notificationCount) || 0);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -68,21 +80,47 @@ function Navbar({
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleOutsideClick
-      );
+      document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
 
   const submitSearch = (event) => {
     event.preventDefault();
-    onSearch?.(searchText.trim());
+
+    if (typeof onSearch === "function") {
+      onSearch(searchText.trim());
+    }
+  };
+
+  const handleProfileClick = () => {
+    setProfileOpen(false);
+
+    if (typeof onProfileClick === "function") {
+      onProfileClick();
+    }
+  };
+
+  const handleSettingsClick = () => {
+    setProfileOpen(false);
+
+    if (typeof onSettingsClick === "function") {
+      onSettingsClick();
+    }
+  };
+
+  const handleLogout = () => {
+    setProfileOpen(false);
+
+    if (typeof onLogout === "function") {
+      onLogout();
+    }
   };
 
   const handleNotificationClick = () => {
-    onNotificationClick?.();
+    if (typeof onNotificationClick === "function") {
+      onNotificationClick();
+    }
   };
 
   return (
@@ -104,7 +142,7 @@ function Navbar({
             {isSidebarOpen ? <FaTimes /> : <FaBars />}
           </button>
 
-          <Link to="/admin/dashboard" className="salary-brand">
+          <Link to={dashboardPath} className="salary-brand">
             <span className="salary-brand-icon">
               <FaWallet />
             </span>
@@ -121,9 +159,9 @@ function Navbar({
         {/* MIDDLE SECTION */}
         <div className="salary-navbar-middle">
           <div className="salary-welcome">
-            <small>ADMINISTRATION</small>
+            <small>{portalLabel}</small>
             <strong>
-              Welcome back, {name.split(" ")[0]}
+              Welcome back, {String(name).split(" ")[0]}
             </strong>
           </div>
 
@@ -136,12 +174,14 @@ function Navbar({
 
             <input
               type="search"
-              placeholder="Search employees, payroll..."
-              aria-label="Search employees and payroll"
-              value={searchText}
-              onChange={(event) =>
-                setSearchText(event.target.value)
+              placeholder={
+                isEmployee
+                  ? "Search your records..."
+                  : "Search employees, payroll..."
               }
+              aria-label="Search"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
             />
 
             <button type="submit">Search</button>
@@ -150,7 +190,6 @@ function Navbar({
 
         {/* RIGHT SECTION */}
         <div className="salary-navbar-actions">
-          {/* NOTIFICATION BELL */}
           <button
             type="button"
             className="salary-icon-button salary-notification-button"
@@ -179,15 +218,11 @@ function Navbar({
             <button
               type="button"
               className="salary-profile-toggle"
-              onClick={() =>
-                setProfileOpen((open) => !open)
-              }
+              onClick={() => setProfileOpen((open) => !open)}
               aria-expanded={profileOpen}
               aria-haspopup="menu"
             >
-              <span className="salary-avatar">
-                {initials}
-              </span>
+              <span className="salary-avatar">{initials}</span>
 
               <span className="salary-profile-info">
                 <strong>{name}</strong>
@@ -208,9 +243,7 @@ function Navbar({
                 role="menu"
               >
                 <div className="salary-dropdown-heading">
-                  <span className="salary-avatar">
-                    {initials}
-                  </span>
+                  <span className="salary-avatar">{initials}</span>
 
                   <span>
                     <strong>{name}</strong>
@@ -221,10 +254,7 @@ function Navbar({
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    onProfileClick?.();
-                  }}
+                  onClick={handleProfileClick}
                 >
                   <FaUser />
                   My Profile
@@ -233,10 +263,7 @@ function Navbar({
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    onSettingsClick?.();
-                  }}
+                  onClick={handleSettingsClick}
                 >
                   <FaCog />
                   Settings
@@ -246,10 +273,7 @@ function Navbar({
                   type="button"
                   className="salary-logout"
                   role="menuitem"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    onLogout?.();
-                  }}
+                  onClick={handleLogout}
                 >
                   <FaSignOutAlt />
                   Logout
@@ -311,10 +335,7 @@ function Navbar({
           color: #294c68;
           font-size: 17px;
           cursor: pointer;
-          transition:
-            color .2s,
-            background .2s,
-            border-color .2s;
+          transition: color .2s, background .2s, border-color .2s;
         }
 
         .salary-menu-toggle:hover,
@@ -467,7 +488,6 @@ function Navbar({
           gap: clamp(8px, 1vw, 15px);
         }
 
-        /* Small red notification count at the upper-left of the bell */
         .salary-notification-button {
           position: relative;
           overflow: visible;

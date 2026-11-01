@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FaSearch,
@@ -15,18 +14,11 @@ import {
   FaExclamationCircle,
   FaSyncAlt,
 } from "react-icons/fa";
-
 import { useNavigate } from "react-router-dom";
 import payrollService from "../../services/payrollService";
 import salarySlipService from "../../services/salarySlipService";
 import "./PayrollHistory.css";
-
-const API_BASE_URL = (
-  process.env.REACT_APP_API_URL ||
-  "https://salary-slip-backend-rjgj.onrender.com/api"
-).replace(/\/+$/, "");
-
-const PAYROLL_API = `${API_BASE_URL}/payroll`;
+import api, { getApiError } from "../../services/api";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -116,18 +108,31 @@ const getEmployeeName = (record) =>
 
 const extractRecords = (response) => {
   if (Array.isArray(response)) return response;
-  if (Array.isArray(response?.payrolls)) return response.payrolls;
+
+  if (Array.isArray(response?.payrolls)) {
+    return response.payrolls;
+  }
+
   if (Array.isArray(response?.payrollRecords)) {
     return response.payrollRecords;
   }
-  if (Array.isArray(response?.records)) return response.records;
-  if (Array.isArray(response?.data)) return response.data;
+
+  if (Array.isArray(response?.records)) {
+    return response.records;
+  }
+
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+
   if (Array.isArray(response?.data?.payrolls)) {
     return response.data.payrolls;
   }
+
   if (Array.isArray(response?.data?.payrollRecords)) {
     return response.data.payrollRecords;
   }
+
   if (Array.isArray(response?.data?.records)) {
     return response.data.records;
   }
@@ -139,9 +144,6 @@ const escapeCsv = (value) => {
   const text = String(value ?? "");
   return `"${text.replace(/"/g, '""')}"`;
 };
-
-const getErrorMessage = (data, fallback) =>
-  data?.message || data?.error || fallback;
 
 function PayrollHistory() {
   const navigate = useNavigate();
@@ -156,37 +158,33 @@ function PayrollHistory() {
   const [noticeType, setNoticeType] = useState("success");
   const [actionBusyId, setActionBusyId] = useState("");
 
+  // Load payroll using the shared API client.
+  // HttpOnly session cookie is sent automatically.
+  // No authentication token is read from localStorage.
   const loadPayrollRecords = useCallback(async () => {
     setLoading(true);
     setNotice("");
 
     try {
-      const token = localStorage.getItem("token");
+      const response = await api.get("/payroll");
 
-      const response = await fetch(PAYROLL_API, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          getErrorMessage(data, "Unable to load payroll history.")
-        );
-      }
-
-      setPayrollRecords(extractRecords(data));
+      setPayrollRecords(extractRecords(response.data));
     } catch (error) {
-      console.error("Load Payroll History Error:", error);
+      console.error("Load Payroll History Error:", {
+        status: error.response?.status,
+        response: error.response?.data,
+        message: error.message,
+      });
 
       setNoticeType("error");
       setNotice(
-        error.message || "Unable to connect to the payroll server."
+        getApiError(
+          error,
+          "Unable to load payroll history."
+        )
       );
+
+      setPayrollRecords([]);
     } finally {
       setLoading(false);
     }
@@ -196,6 +194,7 @@ function PayrollHistory() {
     loadPayrollRecords();
   }, [loadPayrollRecords]);
 
+  // Process draft payroll.
   const handleProcessPayroll = async (record) => {
     const id = getPayrollId(record);
 
@@ -226,9 +225,7 @@ function PayrollHistory() {
 
       setNoticeType("error");
       setNotice(
-        error?.response?.data?.message ||
-          error.message ||
-          "Unable to process payroll."
+        getApiError(error, "Unable to process payroll.")
       );
     } finally {
       setActionBusyId("");
@@ -236,13 +233,14 @@ function PayrollHistory() {
   };
 
   // Generate salary slip first, then send it by email.
-  // Console logs identify which request is failing.
   const handleGenerateAndEmailSlip = async (record) => {
     const payrollId = getPayrollId(record);
 
     if (!payrollId) {
       setNoticeType("error");
-      setNotice("Payroll ID is missing. Please refresh and try again.");
+      setNotice(
+        "Payroll ID is missing. Please refresh and try again."
+      );
       return;
     }
 
@@ -258,17 +256,22 @@ function PayrollHistory() {
       let generated;
 
       try {
-        generated = await salarySlipService.generate({ payrollId });
+        generated = await salarySlipService.generate({
+          payrollId,
+        });
 
         console.log("STEP 2: Generate API response", generated);
       } catch (error) {
-        console.error("SALARY SLIP GENERATION REQUEST FAILED:", {
-          url: error.config?.url,
-          method: error.config?.method,
-          status: error.response?.status,
-          response: error.response?.data,
-          message: error.message,
-        });
+        console.error(
+          "SALARY SLIP GENERATION REQUEST FAILED:",
+          {
+            url: error.config?.url,
+            method: error.config?.method,
+            status: error.response?.status,
+            response: error.response?.data,
+            message: error.message,
+          }
+        );
 
         throw new Error(
           `Salary slip generation failed: ${
@@ -310,13 +313,16 @@ function PayrollHistory() {
 
         console.log("STEP 4: Email API response", emailResult);
       } catch (error) {
-        console.error("SALARY SLIP EMAIL REQUEST FAILED:", {
-          url: error.config?.url,
-          method: error.config?.method,
-          status: error.response?.status,
-          response: error.response?.data,
-          message: error.message,
-        });
+        console.error(
+          "SALARY SLIP EMAIL REQUEST FAILED:",
+          {
+            url: error.config?.url,
+            method: error.config?.method,
+            status: error.response?.status,
+            response: error.response?.data,
+            message: error.message,
+          }
+        );
 
         throw new Error(
           `Salary slip was generated, but email failed: ${
@@ -345,6 +351,7 @@ function PayrollHistory() {
     }
   };
 
+  // Available payroll months.
   const availableMonths = useMemo(() => {
     const months = payrollRecords.map((record) => {
       const month = record.month ?? record.payrollMonth;
@@ -369,6 +376,7 @@ function PayrollHistory() {
     ].sort((a, b) => b.localeCompare(a));
   }, [payrollRecords]);
 
+  // Search and filter payroll records.
   const filteredRecords = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
@@ -406,13 +414,19 @@ function PayrollHistory() {
         const matchesMonth =
           !monthFilter || recordMonth === monthFilter;
 
-        const status = String(record.status || "Generated").toLowerCase();
+        const status = String(
+          record.status || "Generated"
+        ).toLowerCase();
 
         const matchesStatus =
           statusFilter === "All" ||
           status === statusFilter.toLowerCase();
 
-        return matchesSearch && matchesMonth && matchesStatus;
+        return (
+          matchesSearch &&
+          matchesMonth &&
+          matchesStatus
+        );
       })
       .sort((a, b) => {
         const dateA = new Date(
@@ -425,15 +439,22 @@ function PayrollHistory() {
 
         return dateB - dateA;
       });
-  }, [payrollRecords, searchTerm, monthFilter, statusFilter]);
+  }, [
+    payrollRecords,
+    searchTerm,
+    monthFilter,
+    statusFilter,
+  ]);
 
   const totalNetPay = filteredRecords.reduce(
-    (sum, record) => sum + (Number(record.netSalary) || 0),
+    (sum, record) =>
+      sum + (Number(record.netSalary) || 0),
     0
   );
 
   const totalGrossPay = filteredRecords.reduce(
-    (sum, record) => sum + (Number(record.grossSalary) || 0),
+    (sum, record) =>
+      sum + (Number(record.grossSalary) || 0),
     0
   );
 
@@ -441,6 +462,7 @@ function PayrollHistory() {
     filteredRecords.map(getEmployeeId).filter(Boolean)
   ).size;
 
+  // Export filtered payroll records to CSV.
   const handleExportCsv = () => {
     if (filteredRecords.length === 0) {
       setNoticeType("error");
@@ -543,8 +565,7 @@ function PayrollHistory() {
 
     navigate(`/admin/payroll/details/${encodeURIComponent(id)}`);
   };
-
-  return (
+    return (
     <div className="payroll-history-page">
       <div className="payroll-history-header">
         <div className="payroll-history-heading">
@@ -618,6 +639,7 @@ function PayrollHistory() {
           <div className="payroll-history-stat-icon blue">
             <FaFileInvoiceDollar />
           </div>
+
           <div className="payroll-history-stat-info">
             <span>Payroll Records</span>
             <h3>{loading ? "—" : filteredRecords.length}</h3>
@@ -629,6 +651,7 @@ function PayrollHistory() {
           <div className="payroll-history-stat-icon purple">
             <FaUsers />
           </div>
+
           <div className="payroll-history-stat-info">
             <span>Employees</span>
             <h3>{loading ? "—" : uniqueEmployees}</h3>
@@ -640,9 +663,12 @@ function PayrollHistory() {
           <div className="payroll-history-stat-icon green">
             <FaMoneyBillWave />
           </div>
+
           <div className="payroll-history-stat-info">
             <span>Total Net Pay</span>
-            <h3>{loading ? "—" : formatCurrency(totalNetPay)}</h3>
+            <h3>
+              {loading ? "—" : formatCurrency(totalNetPay)}
+            </h3>
             <small>After deductions</small>
           </div>
         </div>
@@ -651,9 +677,12 @@ function PayrollHistory() {
           <div className="payroll-history-stat-icon orange">
             <FaCalendarAlt />
           </div>
+
           <div className="payroll-history-stat-info">
             <span>Total Gross Pay</span>
-            <h3>{loading ? "—" : formatCurrency(totalGrossPay)}</h3>
+            <h3>
+              {loading ? "—" : formatCurrency(totalGrossPay)}
+            </h3>
             <small>Before deductions</small>
           </div>
         </div>
@@ -663,6 +692,7 @@ function PayrollHistory() {
         <div className="payroll-history-toolbar">
           <div>
             <h2>Generated Payroll Records</h2>
+
             <p>
               Search, filter, inspect, and export employee salary records.
             </p>
@@ -681,6 +711,7 @@ function PayrollHistory() {
         <div className="payroll-history-filters">
           <div className="payroll-history-search">
             <FaSearch />
+
             <input
               type="search"
               value={searchTerm}
@@ -692,12 +723,14 @@ function PayrollHistory() {
 
           <div className="payroll-history-filter-control">
             <FaCalendarAlt />
+
             <select
               value={monthFilter}
               onChange={(event) => setMonthFilter(event.target.value)}
               aria-label="Filter by payroll month"
             >
               <option value="">All Months</option>
+
               {availableMonths.map((month) => (
                 <option key={month} value={month}>
                   {formatMonth(month)}
@@ -708,6 +741,7 @@ function PayrollHistory() {
 
           <div className="payroll-history-filter-control">
             <FaFilter />
+
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -765,9 +799,11 @@ function PayrollHistory() {
 
                           <div className="payroll-history-employee-info">
                             <strong>{getEmployeeName(record)}</strong>
+
                             <span>
                               ID: {getEmployeeId(record) || "—"}
                             </span>
+
                             <small>
                               {record.department ||
                                 record.employee?.department?.name ||
@@ -787,7 +823,9 @@ function PayrollHistory() {
                         </span>
                       </td>
 
-                      <td>{formatCurrency(record.grossSalary)}</td>
+                      <td>
+                        {formatCurrency(record.grossSalary)}
+                      </td>
 
                       <td className="payroll-history-deduction">
                         {formatCurrency(
@@ -808,7 +846,9 @@ function PayrollHistory() {
                       </td>
 
                       <td>
-                        {formatDate(record.generatedOn || record.createdAt)}
+                        {formatDate(
+                          record.generatedOn || record.createdAt
+                        )}
                       </td>
 
                       <td>
@@ -830,7 +870,9 @@ function PayrollHistory() {
                               onClick={() => handleProcessPayroll(record)}
                               disabled={Boolean(actionBusyId)}
                             >
-                              {actionBusyId === id ? "Processing…" : "Process"}
+                              {actionBusyId === id
+                                ? "Processing…"
+                                : "Process"}
                             </button>
                           )}
 
@@ -874,11 +916,14 @@ function PayrollHistory() {
                       <div className="payroll-history-empty-icon">
                         <FaFileInvoiceDollar />
                       </div>
+
                       <h3>No payroll records found</h3>
+
                       <p>
                         Try changing the filters or generate payroll to create
                         your first record.
                       </p>
+
                       <button
                         type="button"
                         onClick={() => navigate("/admin/payroll/generate")}
@@ -896,9 +941,16 @@ function PayrollHistory() {
         <div className="payroll-history-footer">
           <span>
             Showing{" "}
-            <strong>{loading ? "—" : filteredRecords.length}</strong> of{" "}
-            <strong>{loading ? "—" : payrollRecords.length}</strong> records
+            <strong>
+              {loading ? "—" : filteredRecords.length}
+            </strong>{" "}
+            of{" "}
+            <strong>
+              {loading ? "—" : payrollRecords.length}
+            </strong>{" "}
+            records
           </span>
+
           <span>Currency: INR (₹)</span>
         </div>
       </section>

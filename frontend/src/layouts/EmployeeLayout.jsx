@@ -1,5 +1,16 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
 import {
   FaThLarge,
   FaUserCircle,
@@ -13,6 +24,7 @@ import {
 
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
+import { useAuthContext } from "../context/AuthContext";
 
 const navigationItems = [
   {
@@ -59,8 +71,16 @@ const navigationItems = [
 ];
 
 function EmployeeLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
+
+  const {
+    user,
+    logout,
+  } = useAuthContext();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const closeSidebar = useCallback(() => {
     setSidebarOpen(false);
@@ -70,16 +90,17 @@ function EmployeeLayout() {
     setSidebarOpen((previous) => !previous);
   }, []);
 
-  // Close the mobile sidebar after navigating to another page.
+  // Close sidebar after navigation.
   useEffect(() => {
     closeSidebar();
   }, [location.pathname, closeSidebar]);
 
-  // Prevent background scrolling and support closing with Escape.
+  // Prevent background scrolling and support Escape.
   useEffect(() => {
     if (!sidebarOpen) return undefined;
 
     const previousOverflow = document.body.style.overflow;
+
     document.body.style.overflow = "hidden";
 
     const handleKeyDown = (event) => {
@@ -96,7 +117,7 @@ function EmployeeLayout() {
     };
   }, [sidebarOpen, closeSidebar]);
 
-  // Automatically close the drawer when switching back to desktop width.
+  // Close mobile sidebar on desktop resize.
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth > 900) {
@@ -110,6 +131,37 @@ function EmployeeLayout() {
       window.removeEventListener("resize", handleResize);
     };
   }, [closeSidebar]);
+
+  // Employee profile.
+  const handleProfileClick = useCallback(() => {
+    closeSidebar();
+    navigate("/employee/profile");
+  }, [navigate, closeSidebar]);
+
+  // Employee settings currently open Change Password.
+  const handleSettingsClick = useCallback(() => {
+    closeSidebar();
+    navigate("/employee/change-password");
+  }, [navigate, closeSidebar]);
+
+  // Logout using the backend HttpOnly cookie session.
+  const handleLogout = useCallback(async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Employee logout failed:", error);
+    } finally {
+      setIsLoggingOut(false);
+
+      navigate("/login", {
+        replace: true,
+      });
+    }
+  }, [logout, navigate, isLoggingOut]);
 
   return (
     <>
@@ -405,10 +457,12 @@ function EmployeeLayout() {
             sidebarOpen ? "open" : ""
           }`}
           aria-label="Employee navigation"
-          aria-hidden={sidebarOpen ? undefined : undefined}
         >
           <div className="employee-layout-brand">
-            <div className="employee-layout-brand-icon" aria-hidden="true">
+            <div
+              className="employee-layout-brand-icon"
+              aria-hidden="true"
+            >
               <FaMoneyBillWave />
             </div>
 
@@ -427,7 +481,9 @@ function EmployeeLayout() {
             </button>
           </div>
 
-          <p className="employee-layout-nav-title">Employee Menu</p>
+          <p className="employee-layout-nav-title">
+            Employee Menu
+          </p>
 
           <nav className="employee-layout-nav">
             {navigationItems.map((item) => (
@@ -436,7 +492,9 @@ function EmployeeLayout() {
                 to={item.path}
                 end={Boolean(item.end)}
                 className={({ isActive }) =>
-                  `employee-layout-link${isActive ? " active" : ""}`
+                  `employee-layout-link${
+                    isActive ? " active" : ""
+                  }`
                 }
                 onClick={closeSidebar}
               >
@@ -450,6 +508,14 @@ function EmployeeLayout() {
         <div className="employee-layout-main">
           <Navbar
             onMenuClick={toggleSidebar}
+            isSidebarOpen={sidebarOpen}
+            user={user}
+            onProfileClick={handleProfileClick}
+            onSettingsClick={handleSettingsClick}
+            onLogout={handleLogout}
+            onNotificationClick={() => {}}
+            onSearch={() => {}}
+            notificationCount={0}
           />
 
           <main className="employee-layout-content">

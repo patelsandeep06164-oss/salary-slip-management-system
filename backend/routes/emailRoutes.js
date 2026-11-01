@@ -1,4 +1,3 @@
-
 const express = require("express");
 const router = express.Router();
 
@@ -8,15 +7,17 @@ const roleMiddleware = require("../middleware/roleMiddleware");
 
 router.use(authMiddleware);
 
+// Only Admin can view email logs.
 router.get(
   "/logs",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
   emailController.getEmailLogs
 );
 
+// Only Admin can retry failed salary slip emails.
 router.post(
   "/retry/:id",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
   emailController.retrySalarySlipEmail
 );
 

@@ -104,6 +104,7 @@ const generateSalarySlip = async (payrollId, generatedBy) => {
     throw error;
   }
 
+  // Reuse an existing PDF without creating another salary slip.
   if (slip?.pdfPath && fs.existsSync(slip.pdfPath)) {
     console.log("[SalarySlip] Existing PDF found", {
       salarySlipId: String(slip._id),
@@ -194,11 +195,9 @@ const generateSalarySlip = async (payrollId, generatedBy) => {
           year: payroll.year,
         }).select("+pdfPath");
       } catch (lookupError) {
-        logSalarySlipError(
-          "Duplicate salary slip lookup",
-          lookupError,
-          { slipNumber }
-        );
+        logSalarySlipError("Duplicate salary slip lookup", lookupError, {
+          slipNumber,
+        });
         throw lookupError;
       }
 
@@ -234,6 +233,7 @@ const generateSalarySlip = async (payrollId, generatedBy) => {
       employee,
       company,
       slipNumber: slip.slipNumber || slipNumber,
+      salarySlip: slip,
     });
 
     if (!pdf?.pdfPath) {
@@ -282,7 +282,7 @@ const generateSalarySlip = async (payrollId, generatedBy) => {
       salarySlipId: String(slip._id),
     });
 
-    // Preserve the original error if the failure-status save also fails.
+    // PDF generation failure is different from email failure.
     try {
       slip.status = "failed";
       await slip.save();
@@ -296,14 +296,17 @@ const generateSalarySlip = async (payrollId, generatedBy) => {
   }
 };
 
-// Email an existing salary slip without sending duplicate emails.
+// Email an existing salary slip.
+// Email an existing salary slip.
 const emailSalarySlip = async (salarySlipId) => {
   let slip;
 
   try {
     slip = await SalarySlip.findById(salarySlipId).select("+pdfPath");
   } catch (error) {
-    logSalarySlipError("Email slip lookup", error, { salarySlipId });
+    logSalarySlipError("Email slip lookup", error, {
+      salarySlipId,
+    });
     throw error;
   }
 
@@ -346,54 +349,48 @@ const emailSalarySlip = async (salarySlipId) => {
     slip.emailStatus = "failed";
     slip.lastEmailError = "Employee email address is missing.";
 
-    try {
-      await slip.save();
-    } catch (error) {
-      logSalarySlipError("Saving missing-email status", error, {
-        salarySlipId: String(slip._id),
-      });
-    }
+    await slip.save();
 
     throw createError("Employee email address is missing.", 400);
   }
+
+  let emailResult;
 
   try {
     console.log("[SalarySlip] Sending email", {
       salarySlipId: String(slip._id),
     });
 
-    await sendSalarySlipEmail({
+    emailResult = await sendSalarySlipEmail({
       employee,
       salarySlip: slip,
       pdfPath: slip.pdfPath,
       companyName: company?.companyName || "Your Company",
     });
-
-    slip.emailStatus = "sent";
-    slip.status = "emailed";
-    slip.emailSentAt = new Date();
-    slip.emailAttempts = (slip.emailAttempts || 0) + 1;
-    slip.lastEmailError = undefined;
-
-    await slip.save();
-
-    console.log("[SalarySlip] Email sent successfully", {
-      salarySlipId: String(slip._id),
-    });
-
-    return {
-      message: "Salary slip emailed successfully.",
-      salarySlip: slip,
-    };
   } catch (error) {
     logSalarySlipError("Sending salary slip email", error, {
       salarySlipId: String(slip._id),
     });
 
+    // SMTP may already have accepted the email.
+    // Never mark it failed in this uncertain situation.
+    if (error.smtpAcceptedBySmtp) {
+      console.error(
+        "[SalarySlip] SMTP accepted email; database confirmation is pending.",
+        String(slip._id)
+      );
+
+      throw createError(
+        "SMTP accepted the email, but database confirmation is pending. Do not retry immediately.",
+        409
+      );
+    }
+
+    // A normal delivery failure.
     slip.emailStatus = "failed";
-    slip.status = "failed";
-    slip.emailAttempts = (slip.emailAttempts || 0) + 1;
-    slip.lastEmailError = error.message;
+    slip.lastEmailError = String(
+      error.message || "Email sending failed."
+    ).slice(0, 2000);
 
     try {
       await slip.save();
@@ -405,12 +402,86 @@ const emailSalarySlip = async (salarySlipId) => {
 
     throw error;
   }
+
+  // SMTP accepted the email, but EmailLog confirmation is pending.
+  if (emailResult?.statusUnconfirmed) {
+    console.error(
+      "[SalarySlip] Email accepted but EmailLog status is unconfirmed.",
+      String(slip._id)
+    );
+
+    throw createError(
+      "Email was accepted by SMTP, but its database status is unconfirmed. Do not resend immediately.",
+      409
+    );
+  }
+
+  if (!emailResult?.success) {
+    throw createError(
+      "Email service did not confirm successful delivery.",
+      502
+    );
+  }
+
+  // Email service confirmed success.
+  // Update the SalarySlip separately.
+  try {
+    const updateResult = await SalarySlip.updateOne(
+      {
+        _id: slip._id,
+        emailStatus: { $ne: "sent" },
+      },
+      {
+        $set: {
+          emailStatus: "sent",
+          status: "emailed",
+          emailSentAt: new Date(),
+          lastEmailError: "",
+        },
+      }
+    );
+
+    if (updateResult.modifiedCount !== 1) {
+      const latestSlip = await SalarySlip.findById(slip._id).select("+pdfPath");
+
+      if (latestSlip?.emailStatus === "sent") {
+        return {
+          message: "Salary slip has already been emailed.",
+          salarySlip: latestSlip,
+        };
+      }
+
+      console.error(
+        "[SalarySlip] Email sent but SalarySlip status update is pending.",
+        String(slip._id)
+      );
+
+      throw createError(
+        "Email was sent, but SalarySlip database status could not be confirmed. Do not resend immediately.",
+        409
+      );
+    }
+
+    const updatedSlip = await SalarySlip.findById(slip._id).select("+pdfPath");
+
+    console.log("[SalarySlip] Email sent successfully", {
+      salarySlipId: String(slip._id),
+    });
+
+    return {
+      message: "Salary slip emailed successfully.",
+      salarySlip: updatedSlip,
+    };
+  } catch (error) {
+    logSalarySlipError("Updating sent salary slip status", error, {
+      salarySlipId: String(slip._id),
+    });
+
+    throw error;
+  }
 };
 
-const generateAndEmailSalarySlip = async (
-  payrollId,
-  generatedBy
-) => {
+const generateAndEmailSalarySlip = async (payrollId, generatedBy) => {
   const slip = await generateSalarySlip(payrollId, generatedBy);
 
   if (slip.emailStatus === "sent") {
@@ -486,10 +557,7 @@ const getSalarySlips = async ({
 
   const [salarySlips, total] = await Promise.all([
     SalarySlip.find(filter)
-      .populate(
-        "employee",
-        "employeeCode firstName lastName email"
-      )
+      .populate("employee", "employeeCode firstName lastName email")
       .populate("payroll")
       .sort({ year: -1, month: -1 })
       .skip((page - 1) * limit)
@@ -512,10 +580,7 @@ const getSalarySlips = async ({
 const getSalarySlipById = async (id) => {
   const slip = await SalarySlip.findById(id)
     .select("+pdfPath")
-    .populate(
-      "employee",
-      "employeeCode firstName lastName email"
-    )
+    .populate("employee", "employeeCode firstName lastName email")
     .populate("payroll");
 
   if (!slip) {
@@ -526,10 +591,7 @@ const getSalarySlipById = async (id) => {
 };
 
 // Process existing eligible payrolls for a specific month.
-const generateAndEmailMonthlySalarySlips = async (
-  month,
-  year
-) => {
+const generateAndEmailMonthlySalarySlips = async (month, year) => {
   ({ month, year } = validatePeriod(month, year));
 
   const settings = await CompanySettings.findOne();

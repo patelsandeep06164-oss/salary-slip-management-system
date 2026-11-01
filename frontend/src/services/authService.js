@@ -1,7 +1,50 @@
+
 import api from "./api";
 
+// User information remains in memory only.
+// Authentication session is maintained by the HttpOnly cookie.
+let currentUser = null;
+
 const authService = {
-  // Login
+  // ==========================================
+  // REGISTRATION - SEND EMAIL OTP
+  // ==========================================
+  async sendRegistrationOtp(payload) {
+    const response = await api.post(
+      "/auth/registration/send-otp",
+      payload
+    );
+
+    return response.data || {};
+  },
+
+  // ==========================================
+  // REGISTRATION - VERIFY EMAIL OTP
+  // ==========================================
+  async verifyRegistrationOtp(payload) {
+    const response = await api.post(
+      "/auth/registration/verify-otp",
+      payload
+    );
+
+    return response.data || {};
+  },
+
+  // ==========================================
+  // REGISTRATION - COMPLETE REGISTRATION
+  // ==========================================
+  async register(payload) {
+    const response = await api.post(
+      "/auth/register",
+      payload
+    );
+
+    return response.data || {};
+  },
+
+  // ==========================================
+  // LOGIN
+  // ==========================================
   async login(credentials) {
     const response = await api.post(
       "/auth/login",
@@ -10,58 +53,72 @@ const authService = {
 
     const data = response.data || {};
     const user = data.user || data.data?.user;
-    const token =
-      data.token ||
-      data.accessToken ||
-      data.data?.token ||
-      data.data?.accessToken;
-
-    if (token) {
-      localStorage.setItem("token", token);
-    }
 
     if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
+      currentUser = user;
     }
 
     return data;
   },
 
-  // Get current logged-in user
-  async getCurrentUser() {
-    const response = await api.get("/auth/me");
+  // ==========================================
+  // ADMIN LOGIN OTP
+  // ==========================================
+  async verifyAdminLoginOtp(payload) {
+    const response = await api.post(
+      "/auth/admin-login/verify-otp",
+      payload
+    );
+
     const data = response.data || {};
     const user = data.user || data.data?.user;
 
     if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
+      currentUser = user;
     }
 
     return data;
   },
 
-  // Logout
-  logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  // ==========================================
+  // CURRENT USER
+  // ==========================================
+  async getCurrentUser() {
+    const response = await api.get("/auth/me");
+
+    const data = response.data || {};
+    const user = data.user || data.data?.user;
+
+    if (user) {
+      currentUser = user;
+    }
+
+    return data;
   },
 
-  // Read stored user safely
-  getStoredUser() {
+  // ==========================================
+  // LOGOUT
+  // ==========================================
+  async logout() {
     try {
-      const user = localStorage.getItem("user");
-      return user ? JSON.parse(user) : null;
-    } catch {
-      return null;
+      const response = await api.post("/auth/logout");
+      return response.data;
+    } finally {
+      currentUser = null;
     }
   },
 
-  // Check whether a token exists
-  isAuthenticated() {
-    return Boolean(localStorage.getItem("token"));
+  getStoredUser() {
+    return currentUser;
   },
 
-  // Forgot password
+  isAuthenticated() {
+    return Boolean(currentUser);
+  },
+
+  // ==========================================
+  // FORGOT PASSWORD
+  // ==========================================
   async forgotPassword(email) {
     const payload =
       typeof email === "string" ? { email } : email;
@@ -71,27 +128,43 @@ const authService = {
       payload
     );
 
-    return response.data;
+    return response.data || {};
   },
 
-  // Reset password
+  // ==========================================
+  // VERIFY PASSWORD RESET OTP
+  // ==========================================
+  async verifyPasswordResetOtp(payload) {
+    const response = await api.post(
+      "/auth/verify-password-reset-otp",
+      payload
+    );
+
+    return response.data || {};
+  },
+
+  // ==========================================
+  // RESET PASSWORD
+  // ==========================================
   async resetPassword(payload) {
     const response = await api.post(
       "/auth/reset-password",
       payload
     );
 
-    return response.data;
+    return response.data || {};
   },
 
-  // Change password for logged-in user
+  // ==========================================
+  // CHANGE PASSWORD
+  // ==========================================
   async changePassword(payload) {
     const response = await api.patch(
       "/auth/change-password",
       payload
     );
 
-    return response.data;
+    return response.data || {};
   },
 };
 

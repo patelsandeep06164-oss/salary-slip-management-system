@@ -9,7 +9,7 @@ const searchController = require("../controllers/searchController");
 router.get(
   "/",
   authMiddleware,
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
   searchController.globalSearch
 );
 

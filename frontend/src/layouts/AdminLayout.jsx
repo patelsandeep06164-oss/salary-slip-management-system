@@ -15,31 +15,21 @@ import Sidebar from "../components/common/Sidebar";
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
 
+import { useAuthContext } from "../context/AuthContext";
+import api from "../services/api";
+
 const DESKTOP_WIDTH = 900;
-
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL ||
-  "https://salary-slip-backend-rjgj.onrender.com/api";
-
-// Safely read the logged-in user from localStorage
-const readStoredUser = () => {
-  try {
-    const storedUser = localStorage.getItem("user");
-
-    if (!storedUser) return null;
-
-    const parsedUser = JSON.parse(storedUser);
-
-    return parsedUser?.user || parsedUser;
-  } catch (error) {
-    console.error("Unable to read saved user:", error);
-    return null;
-  }
-};
 
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Authentication from HttpOnly cookie-based AuthContext
+  const {
+    user: currentUser,
+    setUser,
+    logout,
+  } = useAuthContext();
 
   const [sidebarOpen, setSidebarOpen] = useState(
     () =>
@@ -50,29 +40,19 @@ function AdminLayout() {
   const [notificationCount, setNotificationCount] =
     useState(0);
 
-  // Logged-in user state
-  const [currentUser, setCurrentUser] = useState(
-    readStoredUser
-  );
-
-  // Keep Navbar user information synchronized
+  // Keep Navbar user information synchronized with AuthContext
   useEffect(() => {
-    const syncUser = () => {
-      setCurrentUser(readStoredUser());
-    };
-
     const handleProfileUpdated = (event) => {
       const updatedUser = event.detail;
 
-      if (!updatedUser) {
-        syncUser();
+      if (!updatedUser || typeof updatedUser !== "object") {
         return;
       }
 
-      setCurrentUser((previousUser) => ({
-        ...(previousUser || {}),
+      setUser({
+        ...(currentUser || {}),
         ...updatedUser,
-      }));
+      });
     };
 
     window.addEventListener(
@@ -80,17 +60,13 @@ function AdminLayout() {
       handleProfileUpdated
     );
 
-    window.addEventListener("storage", syncUser);
-
     return () => {
       window.removeEventListener(
         "profile-updated",
         handleProfileUpdated
       );
-
-      window.removeEventListener("storage", syncUser);
     };
-  }, []);
+  }, [currentUser, setUser]);
 
   // Sidebar controls
   const toggleSidebar = useCallback(() => {
@@ -118,56 +94,46 @@ function AdminLayout() {
     [navigate, closeSidebar]
   );
 
-  // Fetch unread notification count from backend
+  // Fetch unread notification count using HttpOnly cookie
   const fetchUnreadNotifications = useCallback(async () => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
+    if (!currentUser) {
       setNotificationCount(0);
       return;
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/notifications?limit=1`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
+      const response = await api.get(
+        "/notifications?limit=1"
       );
 
-      if (
-        response.status === 401 ||
-        response.status === 403
-      ) {
-        setNotificationCount(0);
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          `Notification request failed: ${response.status}`
-        );
-      }
-
-      const data = await response.json();
+      const data = response.data || {};
 
       setNotificationCount(
         Math.max(0, Number(data.unreadCount) || 0)
       );
     } catch (error) {
+      if (
+        error?.response?.status === 401 ||
+        error?.response?.status === 403
+      ) {
+        setNotificationCount(0);
+        return;
+      }
+
       console.error(
         "Failed to fetch notifications:",
         error
       );
     }
-  }, []);
+  }, [currentUser]);
 
   // Initial fetch, periodic refresh and notification updates
   useEffect(() => {
+    if (!currentUser) {
+      setNotificationCount(0);
+      return;
+    }
+
     fetchUnreadNotifications();
 
     const intervalId = window.setInterval(() => {
@@ -202,7 +168,7 @@ function AdminLayout() {
         handleNotificationUpdate
       );
     };
-  }, [fetchUnreadNotifications]);
+  }, [currentUser, fetchUnreadNotifications]);
 
   // Update sidebar on screen resize
   useEffect(() => {
@@ -291,17 +257,17 @@ function AdminLayout() {
     navigate("/admin/profile");
   }, [navigate, closeSidebar]);
 
-  // Logout
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("rememberMe");
-
-    setCurrentUser(null);
-    setNotificationCount(0);
-
-    navigate("/login", { replace: true });
-  }, [navigate]);
+  // Logout using backend session
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setNotificationCount(0);
+      navigate("/login", { replace: true });
+    }
+  }, [logout, navigate]);
 
   return (
     <>

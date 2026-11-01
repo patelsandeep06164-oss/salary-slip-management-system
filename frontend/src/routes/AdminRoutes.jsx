@@ -1,8 +1,8 @@
-
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import AdminLayout from "../layouts/AdminLayout";
+import ProtectedRoute from "../components/common/ProtectedRoute";
 
 // Dashboard
 import Dashboard from "../pages/admin/Dashboard";
@@ -55,7 +55,14 @@ import NotFound from "../pages/NotFound";
 function AdminRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<AdminLayout />}>
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute allowedRole="admin">
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
         {/* Default Admin Page */}
         <Route
           index
@@ -63,16 +70,28 @@ function AdminRoutes() {
         />
 
         {/* Dashboard */}
-        <Route path="dashboard" element={<Dashboard />} />
+        <Route
+          path="dashboard"
+          element={<Dashboard />}
+        />
 
         {/* Admin Profile */}
-        <Route path="profile" element={<MyProfile />} />
+        <Route
+          path="profile"
+          element={<MyProfile />}
+        />
 
         {/* Global Search */}
-        <Route path="search" element={<SearchResults />} />
+        <Route
+          path="search"
+          element={<SearchResults />}
+        />
 
         {/* Employee Management */}
-        <Route path="employees" element={<Employees />} />
+        <Route
+          path="employees"
+          element={<Employees />}
+        />
 
         <Route
           path="employees/add"
@@ -207,7 +226,10 @@ function AdminRoutes() {
         />
 
         {/* Unknown Admin URL */}
-        <Route path="*" element={<NotFound />} />
+        <Route
+          path="*"
+          element={<NotFound />}
+        />
       </Route>
     </Routes>
   );

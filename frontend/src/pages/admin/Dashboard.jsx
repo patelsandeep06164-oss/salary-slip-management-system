@@ -18,6 +18,7 @@ import PayrollChart from "../../components/dashboard/PayrollChart";
 import employeeService from "../../services/employeeService";
 import leaveService from "../../services/leaveService";
 import payrollService from "../../services/payrollService";
+import api from "../../services/api";
 
 const styles = `
 .admin-dashboard,
@@ -508,22 +509,13 @@ const styles = `
 }
 `;
 
-function readDepartments() {
-  try {
-    const parsed = JSON.parse(
-      localStorage.getItem("department_records") || "[]"
-    );
-
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 function normalizeEmployees(result) {
   if (Array.isArray(result)) return result;
   if (Array.isArray(result?.data)) return result.data;
   if (Array.isArray(result?.employees)) return result.employees;
+  if (Array.isArray(result?.data?.employees)) {
+    return result.data.employees;
+  }
   return [];
 }
 
@@ -532,6 +524,7 @@ function extractRecords(response, keys = []) {
 
   for (const key of keys) {
     if (Array.isArray(response?.[key])) return response[key];
+
     if (Array.isArray(response?.data?.[key])) {
       return response.data[key];
     }
@@ -543,17 +536,34 @@ function extractRecords(response, keys = []) {
   return [];
 }
 
-function readLocalRecords(key) {
-  try {
-    const data = JSON.parse(localStorage.getItem(key) || "[]");
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+function getIndiaDateString(dateValue = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(dateValue);
+}
+
+function shiftDateString(dateString, offsetDays) {
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  const date = new Date(
+    Date.UTC(year, month - 1, day + offsetDays)
+  );
+
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 function normalizeStatus(value) {
-  return String(value || "").trim().toLowerCase().replace(/[-_]/g, " ");
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[-_]/g, " ");
 }
 
 function getPayrollMonth(record) {
@@ -564,7 +574,10 @@ function getPayrollMonth(record) {
     return `${year}-${String(month).padStart(2, "0")}`;
   }
 
-  const value = String(month || record.generatedOn || record.createdAt || "");
+  const value = String(
+    month || record.generatedOn || record.createdAt || ""
+  );
+
   const match = value.match(/^(\d{4})-(\d{2})/);
 
   return match ? `${match[1]}-${match[2]}` : "";
@@ -585,6 +598,7 @@ function Dashboard() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [attendanceError, setAttendanceError] = useState("");
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [leaveRecords, setLeaveRecords] = useState([]);
   const [payrollRecords, setPayrollRecords] = useState([]);
@@ -592,23 +606,41 @@ function Dashboard() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError("");
-    setDepartments(readDepartments());
+    setAttendanceError("");
 
-    // AttendanceList currently stores attendance records in localStorage.
-    setAttendanceRecords(readLocalRecords("attendance_records"));
+    // India local date: fetch attendance for the last 7 calendar days.
+    const today = getIndiaDateString();
+    const sevenDaysAgo = shiftDateString(today, -6);
 
-    // Load each API independently so one failing endpoint does not hide
-    // the other dashboard data.
-    const [employeeResult, leaveResult, payrollResult] = await Promise.allSettled([
+    // Load all dashboard data from authenticated backend APIs.
+    const [
+      employeeResult,
+      leaveResult,
+      payrollResult,
+      attendanceResult,
+      departmentResult,
+    ] = await Promise.allSettled([
       employeeService.getAll(),
       leaveService.getAll(),
       payrollService.getAll(),
+
+      api.get("/attendance", {
+        params: {
+          startDate: sevenDaysAgo,
+          endDate: today,
+          page: 1,
+          limit: 100,
+        },
+      }),
+
+      api.get("/departments"),
     ]);
 
     if (employeeResult.status === "fulfilled") {
       setEmployees(normalizeEmployees(employeeResult.value));
     } else {
       setEmployees([]);
+
       setError(
         employeeResult.reason?.response?.data?.message ||
           employeeResult.reason?.message ||
@@ -618,20 +650,73 @@ function Dashboard() {
 
     if (leaveResult.status === "fulfilled") {
       setLeaveRecords(
-        extractRecords(leaveResult.value, ["leaves", "leaveRequests", "requests"])
+        extractRecords(leaveResult.value, [
+          "leaves",
+          "leaveRequests",
+          "requests",
+        ])
       );
     } else {
       setLeaveRecords([]);
-      console.error("Unable to load leave records:", leaveResult.reason);
+      console.error(
+        "Unable to load leave records:",
+        leaveResult.reason
+      );
     }
 
     if (payrollResult.status === "fulfilled") {
       setPayrollRecords(
-        extractRecords(payrollResult.value, ["payrolls", "payrollRecords", "records"])
+        extractRecords(payrollResult.value, [
+          "payrolls",
+          "payrollRecords",
+          "records",
+        ])
       );
     } else {
       setPayrollRecords([]);
-      console.error("Unable to load payroll records:", payrollResult.reason);
+      console.error(
+        "Unable to load payroll records:",
+        payrollResult.reason
+      );
+    }
+
+    if (attendanceResult.status === "fulfilled") {
+      setAttendanceRecords(
+        extractRecords(attendanceResult.value?.data, [
+          "records",
+          "attendance",
+          "attendances",
+        ])
+      );
+    } else {
+      setAttendanceRecords([]);
+
+      setAttendanceError(
+        attendanceResult.reason?.response?.data?.message ||
+          attendanceResult.reason?.message ||
+          "Unable to load attendance records from the server."
+      );
+
+      console.error(
+        "Unable to load attendance records:",
+        attendanceResult.reason
+      );
+    }
+
+    if (departmentResult.status === "fulfilled") {
+      setDepartments(
+        extractRecords(departmentResult.value?.data, [
+          "departments",
+          "data",
+          "records",
+        ])
+      );
+    } else {
+      setDepartments([]);
+      console.error(
+        "Unable to load departments:",
+        departmentResult.reason
+      );
     }
 
     setLoading(false);
@@ -654,10 +739,16 @@ function Dashboard() {
     () =>
       employees.reduce((total, employee) => {
         const salary = Number(
-          employee.salary ?? employee.basicSalary ?? employee.basic_salary ?? 0
+          employee.salary ??
+            employee.basicSalary ??
+            employee.basic_salary ??
+            0
         );
 
-        return total + (Number.isFinite(salary) && salary > 0 ? salary : 0);
+        return (
+          total +
+          (Number.isFinite(salary) && salary > 0 ? salary : 0)
+        );
       }, 0),
     [employees]
   );
@@ -665,7 +756,8 @@ function Dashboard() {
   const pendingLeaves = useMemo(
     () =>
       leaveRecords.filter(
-        (leave) => normalizeStatus(leave.status || "Pending") === "pending"
+        (leave) =>
+          normalizeStatus(leave.status || "Pending") === "pending"
       ).length,
     [leaveRecords]
   );
@@ -677,21 +769,33 @@ function Dashboard() {
     for (let offset = 6; offset >= 0; offset -= 1) {
       const date = new Date(today);
       date.setDate(today.getDate() - offset);
-      const dateKey = [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, "0"),
-        String(date.getDate()).padStart(2, "0"),
-      ].join("-");
 
-      const dayRecords = attendanceRecords.filter(
-        (record) => String(record.date || "").slice(0, 10) === dateKey
+      const dateKey = getIndiaDateString(date);
+
+      const dayRecords = attendanceRecords.filter((record) => {
+        const recordDate = record.date
+          ? getIndiaDateString(new Date(record.date))
+          : "";
+
+        return recordDate === dateKey;
+      });
+
+      const statuses = dayRecords.map((record) =>
+        normalizeStatus(record.status)
       );
-      const statuses = dayRecords.map((record) => normalizeStatus(record.status));
 
       rows.push({
-        day: date.toLocaleDateString("en-IN", { weekday: "short" }),
-        present: statuses.filter((status) => ["present", "half day", "halfday"].includes(status)).length,
+        day: date.toLocaleDateString("en-IN", {
+          weekday: "short",
+          timeZone: "Asia/Kolkata",
+        }),
+
+        present: statuses.filter((status) =>
+          ["present", "half day", "halfday"].includes(status)
+        ).length,
+
         late: statuses.filter((status) => status === "late").length,
+
         absent: statuses.filter((status) => status === "absent").length,
       });
     }
@@ -704,24 +808,37 @@ function Dashboard() {
 
     payrollRecords.forEach((record) => {
       const monthKey = getPayrollMonth(record);
+
       if (!monthKey) return;
 
       const amount = Number(
-        record.netSalary ?? record.grossSalary ?? record.totalSalary ?? 0
+        record.netSalary ??
+          record.grossSalary ??
+          record.totalSalary ??
+          0
       );
+
       if (!Number.isFinite(amount)) return;
 
-      totalsByMonth.set(monthKey, (totalsByMonth.get(monthKey) || 0) + amount);
+      totalsByMonth.set(
+        monthKey,
+        (totalsByMonth.get(monthKey) || 0) + amount
+      );
     });
 
     return Array.from(totalsByMonth.entries())
-      .sort(([monthA], [monthB]) => monthA.localeCompare(monthB))
+      .sort(([monthA], [monthB]) =>
+        monthA.localeCompare(monthB)
+      )
       .slice(-6)
       .map(([monthKey, payroll]) => ({
-        month: new Date(`${monthKey}-01T00:00:00`).toLocaleDateString("en-IN", {
+        month: new Date(
+          `${monthKey}-01T00:00:00`
+        ).toLocaleDateString("en-IN", {
           month: "short",
           year: "2-digit",
         }),
+
         payroll,
       }));
   }, [payrollRecords]);
@@ -766,11 +883,18 @@ function Dashboard() {
     () =>
       [...employees]
         .sort((a, b) => {
-          const dateA = new Date(a.createdAt || a.joiningDate || 0).getTime();
-          const dateB = new Date(b.createdAt || b.joiningDate || 0).getTime();
+          const dateA = new Date(
+            a.createdAt || a.joiningDate || 0
+          ).getTime();
 
-          return (Number.isFinite(dateB) ? dateB : 0) -
-            (Number.isFinite(dateA) ? dateA : 0);
+          const dateB = new Date(
+            b.createdAt || b.joiningDate || 0
+          ).getTime();
+
+          return (
+            (Number.isFinite(dateB) ? dateB : 0) -
+            (Number.isFinite(dateA) ? dateA : 0)
+          );
         })
         .slice(0, 5),
     [employees]
@@ -783,15 +907,23 @@ function Dashboard() {
       <header className="dash-heading">
         <div>
           <h1>Dashboard</h1>
-          <p>Overview of your employee and payroll records.</p>
+          <p>
+            Overview of your employee and payroll records.
+          </p>
         </div>
 
         <div className="dash-actions">
-          <Link to="/admin/employees/add" className="dash-btn primary">
+          <Link
+            to="/admin/employees/add"
+            className="dash-btn primary"
+          >
             <FaUserPlus /> Add Employee
           </Link>
 
-          <Link to="/admin/payroll/generate" className="dash-btn">
+          <Link
+            to="/admin/payroll/generate"
+            className="dash-btn"
+          >
             <FaFileInvoiceDollar /> Generate Payroll
           </Link>
         </div>
@@ -800,9 +932,14 @@ function Dashboard() {
       {error && (
         <div className="dash-alert" role="alert">
           <FaExclamationCircle />
+
           <div>
-            <strong>Dashboard data could not be loaded.</strong>
+            <strong>
+              Dashboard data could not be loaded.
+            </strong>
+
             <div>{error}</div>
+
             <button
               type="button"
               className="dash-btn"
@@ -815,15 +952,23 @@ function Dashboard() {
         </div>
       )}
 
-      <section className="dash-stats" aria-label="Employee statistics">
+      <section
+        className="dash-stats"
+        aria-label="Employee statistics"
+      >
         {stats.map((stat) => (
           <article className="dash-stat" key={stat.label}>
             <div className="dash-stat-top">
-              <span className="dash-stat-label">{stat.label}</span>
+              <span className="dash-stat-label">
+                {stat.label}
+              </span>
 
               <span
                 className="dash-stat-icon"
-                style={{ color: stat.color, background: stat.bg }}
+                style={{
+                  color: stat.color,
+                  background: stat.bg,
+                }}
                 aria-hidden="true"
               >
                 {stat.icon}
@@ -831,18 +976,48 @@ function Dashboard() {
             </div>
 
             <div
-              className={`dash-stat-value${stat.isMoney ? " money" : ""}`}
+              className={`dash-stat-value${
+                stat.isMoney ? " money" : ""
+              }`}
               aria-live="polite"
             >
               {stat.value}
             </div>
 
-            <div className="dash-stat-note">{stat.note}</div>
+            <div className="dash-stat-note">
+              {stat.note}
+            </div>
           </article>
         ))}
       </section>
 
-      <section className="dash-charts" aria-label="Reports and charts">
+      {attendanceError && (
+        <div className="dash-alert" role="alert">
+          <FaExclamationCircle />
+
+          <div>
+            <strong>
+              Attendance data could not be loaded.
+            </strong>
+
+            <div>{attendanceError}</div>
+
+            <button
+              type="button"
+              className="dash-btn"
+              onClick={loadDashboard}
+              style={{ marginTop: 10 }}
+            >
+              <FaSyncAlt /> Try again
+            </button>
+          </div>
+        </div>
+      )}
+
+      <section
+        className="dash-charts"
+        aria-label="Reports and charts"
+      >
         <div className="dash-chart-slot">
           <AttendanceChart
             data={attendanceChartData}
@@ -874,26 +1049,36 @@ function Dashboard() {
 
           {loading ? (
             <div className="dash-loading" role="status">
-              <span className="dash-spinner" aria-hidden="true" />
+              <span
+                className="dash-spinner"
+                aria-hidden="true"
+              />
               Loading employees...
             </div>
           ) : recentEmployees.length === 0 ? (
             <p className="dash-empty">
               No employees found.{" "}
-              <Link to="/admin/employees/add">Add your first employee</Link>.
+              <Link to="/admin/employees/add">
+                Add your first employee
+              </Link>
+              .
             </p>
           ) : (
             recentEmployees.map((employee, index) => {
-              const name = employee.name || "Unnamed Employee";
+              const name =
+                employee.name || "Unnamed Employee";
+
               const department =
                 typeof employee.department === "object"
                   ? employee.department?.name ||
                     employee.department?.departmentName ||
                     "Unassigned Department"
-                  : employee.department || "Unassigned Department";
+                  : employee.department ||
+                    "Unassigned Department";
 
               const isActive =
-                String(employee.status || "Active").toLowerCase() === "active";
+                String(employee.status || "Active").toLowerCase() ===
+                "active";
 
               return (
                 <div
@@ -906,14 +1091,19 @@ function Dashboard() {
                     `${name}-${index}`
                   }
                 >
-                  <div className="dash-activity-icon" aria-hidden="true">
+                  <div
+                    className="dash-activity-icon"
+                    aria-hidden="true"
+                  >
                     <FaUsers />
                   </div>
 
                   <div className="dash-activity-copy">
                     <strong>{name}</strong>
+
                     <small>
-                      {employee.designation || "Employee"} · {department}
+                      {employee.designation || "Employee"} ·{" "}
+                      {department}
                     </small>
                   </div>
 
@@ -941,27 +1131,45 @@ function Dashboard() {
           </div>
 
           <div className="dash-quick-links">
-            <Link className="dash-quick-link" to="/admin/employees/add">
+            <Link
+              className="dash-quick-link"
+              to="/admin/employees/add"
+            >
               <FaUserPlus /> Add Employee
             </Link>
 
-            <Link className="dash-quick-link" to="/admin/employees">
+            <Link
+              className="dash-quick-link"
+              to="/admin/employees"
+            >
               <FaUsers /> Employees
             </Link>
 
-            <Link className="dash-quick-link" to="/admin/attendance">
+            <Link
+              className="dash-quick-link"
+              to="/admin/attendance"
+            >
               <FaUserCheck /> Attendance
             </Link>
 
-            <Link className="dash-quick-link" to="/admin/departments">
+            <Link
+              className="dash-quick-link"
+              to="/admin/departments"
+            >
               <FaBuilding /> Departments
             </Link>
 
-            <Link className="dash-quick-link" to="/admin/payroll/generate">
+            <Link
+              className="dash-quick-link"
+              to="/admin/payroll/generate"
+            >
               <FaMoneyBillWave /> Payroll
             </Link>
 
-            <Link className="dash-quick-link" to="/admin/reports/payroll">
+            <Link
+              className="dash-quick-link"
+              to="/admin/reports/payroll"
+            >
               <FaFileInvoiceDollar /> Reports
             </Link>
           </div>

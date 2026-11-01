@@ -1,13 +1,51 @@
 
 const fs = require("fs");
+const mongoose = require("mongoose");
 const salarySlipService = require("../services/salarySlipService");
 
-// Generate salary slip
+const isAdmin = (req) => req.user?.role === "admin";
+
+const isAuthorizedViewer = (req) =>
+  ["admin", "employee"].includes(req.user?.role);
+
+const isValidId = (id) =>
+  typeof id === "string" && mongoose.isValidObjectId(id);
+
+const getSlipEmployeeId = (slip) => {
+  const employee = slip?.employee;
+
+  if (!employee) return null;
+
+  return String(employee._id || employee);
+};
+
+// Never expose internal server PDF paths through API responses.
+const sanitizeSalarySlip = (slip) => {
+  if (!slip) return slip;
+
+  const safeSlip =
+    typeof slip.toObject === "function"
+      ? slip.toObject()
+      : { ...slip };
+
+  delete safeSlip.pdfPath;
+
+  return safeSlip;
+};
+
+// Generate salary slip - Admin only.
 const generateSalarySlip = async (req, res, next) => {
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Admin can generate salary slips.",
+      });
+    }
+
     const { payrollId } = req.body || {};
 
-    if (!payrollId || typeof payrollId !== "string" && typeof payrollId !== "object") {
+    if (!isValidId(payrollId)) {
       return res.status(400).json({
         success: false,
         message: "A valid Payroll ID is required.",
@@ -16,36 +54,42 @@ const generateSalarySlip = async (req, res, next) => {
 
     const slip = await salarySlipService.generateSalarySlip(
       payrollId,
-      req.user?.id || req.user?._id
+      req.user.id
     );
 
     return res.status(201).json({
       success: true,
       message: "Salary slip generated successfully.",
-      salarySlip: slip,
+      salarySlip: sanitizeSalarySlip(slip),
     });
   } catch (error) {
-  console.error("[Generate Salary Slip Error]", {
-    message: error.message,
-    name: error.name,
-    code: error.code,
-    stack: error.stack,
-    payrollId: req.body?.payrollId,
-  });
+    console.error("[Generate Salary Slip Error]", {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+      payrollId: req.body?.payrollId,
+    });
 
-  return next(error);
-}
+    return next(error);
+  }
 };
 
-// Email an existing salary slip
+// Email salary slip - Admin only.
 const emailSalarySlip = async (req, res, next) => {
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Admin can email salary slips.",
+      });
+    }
+
     const { id } = req.params;
 
-    if (!id) {
+    if (!isValidId(id)) {
       return res.status(400).json({
         success: false,
-        message: "Salary slip ID is required.",
+        message: "A valid Salary Slip ID is required.",
       });
     }
 
@@ -54,13 +98,13 @@ const emailSalarySlip = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       ...result,
+      salarySlip: sanitizeSalarySlip(result.salarySlip),
     });
   } catch (error) {
     console.error("[Email Salary Slip Error]", {
       message: error.message,
       name: error.name,
       code: error.code,
-      stack: error.stack,
       salarySlipId: req.params?.id,
     });
 
@@ -68,9 +112,20 @@ const emailSalarySlip = async (req, res, next) => {
   }
 };
 
-// Generate and email monthly salary slips
-const generateAndEmailMonthlySalarySlips = async (req, res, next) => {
+// Monthly salary slip processing - Admin only.
+const generateAndEmailMonthlySalarySlips = async (
+  req,
+  res,
+  next
+) => {
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Admin can process monthly salary slips.",
+      });
+    }
+
     const { month, year } = req.body || {};
 
     const parsedMonth = Number(month);
@@ -108,17 +163,16 @@ const generateAndEmailMonthlySalarySlips = async (req, res, next) => {
       message: error.message,
       name: error.name,
       code: error.code,
-      stack: error.stack,
     });
 
     return next(error);
   }
 };
 
-// Get salary slips
+// Get salary slips.
 const getSalarySlips = async (req, res, next) => {
   try {
-    if (!["admin", "hr", "employee"].includes(req.user?.role)) {
+    if (!isAuthorizedViewer(req)) {
       return res.status(403).json({
         success: false,
         message: "You are not authorized to view salary slips.",
@@ -141,8 +195,16 @@ const getSalarySlips = async (req, res, next) => {
         });
       }
 
+      // Employee cannot override their own employee ID.
       filters.employee = req.user.employeeId;
-    } else {
+    } else if (req.query.employee) {
+      if (!isValidId(req.query.employee)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid Employee ID.",
+        });
+      }
+
       filters.employee = req.query.employee;
     }
 
@@ -157,33 +219,39 @@ const getSalarySlips = async (req, res, next) => {
       message: error.message,
       name: error.name,
       code: error.code,
-      stack: error.stack,
     });
 
     return next(error);
   }
 };
 
-// Get a salary slip by ID
+// Get salary slip by ID.
 const getSalarySlipById = async (req, res, next) => {
   try {
-    if (!["admin", "hr", "employee"].includes(req.user?.role)) {
+    if (!isAuthorizedViewer(req)) {
       return res.status(403).json({
         success: false,
         message: "You are not authorized to view salary slips.",
       });
     }
 
-    const slip = await salarySlipService.getSalarySlipById(req.params.id);
+    const { id } = req.params;
+
+    if (!isValidId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Salary Slip ID.",
+      });
+    }
+
+    const slip = await salarySlipService.getSalarySlipById(id);
 
     if (req.user.role === "employee") {
-      const slipEmployeeId =
-        slip.employee?._id?.toString() ||
-        slip.employee?.toString();
+      const slipEmployeeId = getSlipEmployeeId(slip);
 
       if (
         !req.user.employeeId ||
-        slipEmployeeId !== req.user.employeeId.toString()
+        slipEmployeeId !== String(req.user.employeeId)
       ) {
         return res.status(403).json({
           success: false,
@@ -192,17 +260,14 @@ const getSalarySlipById = async (req, res, next) => {
       }
     }
 
-    const safeSlip = slip.toObject();
     const pdfAvailable = Boolean(
       slip.pdfPath && fs.existsSync(slip.pdfPath)
     );
 
-    delete safeSlip.pdfPath;
-
     return res.status(200).json({
       success: true,
       salarySlip: {
-        ...safeSlip,
+        ...sanitizeSalarySlip(slip),
         pdfAvailable,
       },
     });
@@ -211,7 +276,6 @@ const getSalarySlipById = async (req, res, next) => {
       message: error.message,
       name: error.name,
       code: error.code,
-      stack: error.stack,
       salarySlipId: req.params?.id,
     });
 
@@ -219,26 +283,33 @@ const getSalarySlipById = async (req, res, next) => {
   }
 };
 
-// Download salary slip PDF
+// Download salary slip PDF.
 const downloadSalarySlipPdf = async (req, res, next) => {
   try {
-    if (!["admin", "hr", "employee"].includes(req.user?.role)) {
+    if (!isAuthorizedViewer(req)) {
       return res.status(403).json({
         success: false,
         message: "You are not authorized to download salary slips.",
       });
     }
 
-    const slip = await salarySlipService.getSalarySlipById(req.params.id);
+    const { id } = req.params;
+
+    if (!isValidId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Salary Slip ID.",
+      });
+    }
+
+    const slip = await salarySlipService.getSalarySlipById(id);
 
     if (req.user.role === "employee") {
-      const slipEmployeeId =
-        slip.employee?._id?.toString() ||
-        slip.employee?.toString();
+      const slipEmployeeId = getSlipEmployeeId(slip);
 
       if (
         !req.user.employeeId ||
-        slipEmployeeId !== req.user.employeeId.toString()
+        slipEmployeeId !== String(req.user.employeeId)
       ) {
         return res.status(403).json({
           success: false,
@@ -263,7 +334,6 @@ const downloadSalarySlipPdf = async (req, res, next) => {
             message: error.message,
             name: error.name,
             code: error.code,
-            stack: error.stack,
           });
 
           next(error);
@@ -275,7 +345,6 @@ const downloadSalarySlipPdf = async (req, res, next) => {
       message: error.message,
       name: error.name,
       code: error.code,
-      stack: error.stack,
       salarySlipId: req.params?.id,
     });
 

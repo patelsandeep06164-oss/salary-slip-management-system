@@ -10,7 +10,7 @@ router.use(authMiddleware);
 
 router.post(
   "/generate",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
   payrollController.generatePayroll
 );
 
@@ -20,7 +20,7 @@ router.get("/:id", payrollController.getPayrollById);
 
 router.patch(
   "/:id/status",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
   payrollController.updatePayrollStatus
 );
 

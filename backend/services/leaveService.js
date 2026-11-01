@@ -1,24 +1,87 @@
 const Leave = require("../models/Leave");
 const Employee = require("../models/Employee");
 
+const INDIA_TIME_ZONE = "Asia/Kolkata";
+const INDIA_OFFSET_MINUTES = 330;
+
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
 };
 
+// Get YYYY-MM-DD according to India timezone.
+const getIndiaDateString = (value) => {
+  let date;
+
+  if (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value)
+  ) {
+    const [year, month, day] = value.split("-").map(Number);
+
+    const checkDate = new Date(Date.UTC(year, month - 1, day));
+
+    if (
+      checkDate.getUTCFullYear() !== year ||
+      checkDate.getUTCMonth() !== month - 1 ||
+      checkDate.getUTCDate() !== day
+    ) {
+      throw createError("Invalid date.");
+    }
+
+    return value;
+  }
+
+  date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    throw createError("Invalid date.");
+  }
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: INDIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const values = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  }
+
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+// Convert India midnight to the corresponding UTC Date.
 const startOfDay = (value) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) throw createError("Invalid date.");
-  date.setHours(0, 0, 0, 0);
-  return date;
+  const dateString = getIndiaDateString(value);
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  return new Date(
+    Date.UTC(year, month - 1, day) -
+      INDIA_OFFSET_MINUTES * 60 * 1000
+  );
 };
 
 const applyLeave = async (data) => {
   const { employee, leaveType, startDate, endDate, reason } = data;
 
-  if (!employee || !leaveType || !startDate || !endDate || !reason) {
-    throw createError("Employee, leave type, dates and reason are required.");
+  if (
+    !employee ||
+    !leaveType ||
+    !startDate ||
+    !endDate ||
+    !reason ||
+    !String(reason).trim()
+  ) {
+    throw createError(
+      "Employee, leave type, dates and reason are required."
+    );
   }
 
   const employeeRecord = await Employee.findById(employee);
@@ -42,7 +105,10 @@ const applyLeave = async (data) => {
   });
 
   if (overlapping) {
-    throw createError("A pending or approved leave overlaps these dates.", 409);
+    throw createError(
+      "A pending or approved leave overlaps these dates.",
+      409
+    );
   }
 
   const totalDays =
@@ -54,7 +120,7 @@ const applyLeave = async (data) => {
     startDate: start,
     endDate: end,
     totalDays,
-    reason: reason.trim(),
+    reason: String(reason).trim(),
     status: "pending",
   });
 };
@@ -72,13 +138,27 @@ const getLeaves = async ({
 
   const filter = {};
 
-  if (employee) filter.employee = employee;
-  if (status) filter.status = status;
+  if (employee) {
+    filter.employee = employee;
+  }
 
-  if (startDate || endDate) {
-    filter.startDate = {};
-    if (startDate) filter.startDate.$gte = startOfDay(startDate);
-    if (endDate) filter.startDate.$lte = startOfDay(endDate);
+  if (status) {
+    filter.status = status;
+  }
+
+  // Return leaves that overlap the requested date range.
+  if (startDate) {
+    filter.endDate = {
+      ...(filter.endDate || {}),
+      $gte: startOfDay(startDate),
+    };
+  }
+
+  if (endDate) {
+    filter.startDate = {
+      ...(filter.startDate || {}),
+      $lte: startOfDay(endDate),
+    };
   }
 
   const [leaves, total] = await Promise.all([
@@ -88,6 +168,7 @@ const getLeaves = async ({
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit),
+
     Leave.countDocuments(filter),
   ]);
 
@@ -114,10 +195,15 @@ const reviewLeave = async ({
 
   const leave = await Leave.findById(leaveId);
 
-  if (!leave) throw createError("Leave request not found.", 404);
+  if (!leave) {
+    throw createError("Leave request not found.", 404);
+  }
 
   if (leave.status !== "pending") {
-    throw createError("Only pending leave requests can be reviewed.", 409);
+    throw createError(
+      "Only pending leave requests can be reviewed.",
+      409
+    );
   }
 
   leave.status = status;
@@ -130,23 +216,38 @@ const reviewLeave = async ({
   return leave;
 };
 
-const cancelLeave = async (leaveId, employeeId) => {
+const cancelLeave = async (leaveId, employeeId, isAdmin = false) => {
+  // Only Admin or an authenticated Employee with a linked ID can cancel.
+  if (!isAdmin && !employeeId) {
+    throw createError("Employee account is not linked.", 403);
+  }
+
   const leave = await Leave.findById(leaveId);
 
-  if (!leave) throw createError("Leave request not found.", 404);
+  if (!leave) {
+    throw createError("Leave request not found.", 404);
+  }
 
+  // Employees can cancel only their own leave.
   if (
-    employeeId &&
+    !isAdmin &&
     leave.employee.toString() !== employeeId.toString()
   ) {
-    throw createError("You cannot cancel another employee's leave.", 403);
+    throw createError(
+      "You cannot cancel another employee's leave.",
+      403
+    );
   }
 
   if (!["pending", "approved"].includes(leave.status)) {
-    throw createError("This leave request cannot be cancelled.", 409);
+    throw createError(
+      "This leave request cannot be cancelled.",
+      409
+    );
   }
 
   leave.status = "cancelled";
+
   await leave.save();
 
   return leave;

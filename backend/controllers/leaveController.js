@@ -1,15 +1,19 @@
 const leaveService = require("../services/leaveService");
 
+const createError = (message, statusCode = 400) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
 const applyLeave = async (req, res, next) => {
   try {
     const data = { ...req.body };
 
-    // Employee must only be able to apply for their own leave.
+    // Employee can apply only for their own leave.
     if (req.user?.role === "employee") {
       if (!req.user.employeeId) {
-        const error = new Error("Employee account is not linked.");
-        error.statusCode = 403;
-        throw error;
+        throw createError("Employee account is not linked.", 403);
       }
 
       data.employee = req.user.employeeId;
@@ -37,14 +41,25 @@ const getLeaves = async (req, res, next) => {
       limit: req.query.limit,
     };
 
-    filters.employee =
-      req.user?.role === "employee"
-        ? req.user.employeeId
-        : req.query.employee;
+    if (req.user?.role === "employee") {
+      if (!req.user.employeeId) {
+        throw createError("Employee account is not linked.", 403);
+      }
+
+      // Never accept another employee's ID from query parameters.
+      filters.employee = req.user.employeeId;
+    } else if (req.user?.role === "admin") {
+      filters.employee = req.query.employee;
+    } else {
+      throw createError("Access denied.", 403);
+    }
 
     const result = await leaveService.getLeaves(filters);
 
-    res.status(200).json({ success: true, ...result });
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
   } catch (error) {
     next(error);
   }
@@ -71,14 +86,24 @@ const reviewLeave = async (req, res, next) => {
 
 const cancelLeave = async (req, res, next) => {
   try {
-    const employeeId =
-      req.user?.role === "employee"
-        ? req.user.employeeId
-        : req.body.employeeId;
+    const isAdmin = req.user?.role === "admin";
+
+    if (!isAdmin && req.user?.role !== "employee") {
+      throw createError("Access denied.", 403);
+    }
+
+    const employeeId = isAdmin
+      ? undefined
+      : req.user.employeeId;
+
+    if (!isAdmin && !employeeId) {
+      throw createError("Employee account is not linked.", 403);
+    }
 
     const leave = await leaveService.cancelLeave(
       req.params.id,
-      employeeId
+      employeeId,
+      isAdmin
     );
 
     res.status(200).json({

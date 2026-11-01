@@ -1,24 +1,14 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import Loader from "./Loader";
 
-function ProtectedRoute({
-  children,
-  isAuthenticated,
-  user,
-  loading = false,
-  redirectTo = "/login",
-}) {
+import Loader from "./Loader";
+import { useAuth } from "../../hooks/useAuth";
+
+function ProtectedRoute({ children, allowedRole }) {
+  const { user, loading, isAuthenticated, role } = useAuth();
   const location = useLocation();
 
-  // Check authentication status.
-  // Explicit boolean takes priority over the user object.
-  const authenticated =
-    typeof isAuthenticated === "boolean"
-      ? isAuthenticated
-      : Boolean(user);
-
-  // Show loader while authentication is being checked.
+  // Wait until backend session verification is complete.
   if (loading) {
     return (
       <Loader
@@ -29,21 +19,41 @@ function ProtectedRoute({
     );
   }
 
-  // Redirect unauthenticated users to login.
-  // Preserve the requested URL so it can be restored after login.
-  if (!authenticated) {
+  // User must be authenticated.
+  if (!isAuthenticated || !user) {
     return (
       <Navigate
-        to={redirectTo}
+        to="/login"
         replace
-        state={{
-          from: location,
-        }}
+        state={{ from: location }}
       />
     );
   }
 
-  // Allow authenticated users to access the protected page.
+  // Only Admin and Employee roles are allowed.
+  const currentRole = String(role || "")
+    .trim()
+    .toLowerCase();
+
+  if (!["admin", "employee"].includes(currentRole)) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Prevent one role from accessing another role's pages.
+  if (currentRole !== allowedRole) {
+    const correctDashboard =
+      currentRole === "admin"
+        ? "/admin/dashboard"
+        : "/employee/dashboard";
+
+    return (
+      <Navigate
+        to={correctDashboard}
+        replace
+      />
+    );
+  }
+
   return children;
 }
 

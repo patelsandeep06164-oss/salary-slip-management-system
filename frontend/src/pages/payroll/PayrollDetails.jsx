@@ -10,9 +10,9 @@ import {
   FaUser,
 } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
+import api from "../../services/api";
 
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "https://salary-slip-backend-rjgj.onrender.com/api";
+
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -60,114 +60,89 @@ function PayrollDetails() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadPayroll = useCallback(async () => {
-    if (!id) {
-      setError("Payroll ID is missing from the URL.");
-      setLoading(false);
-      return;
+  if (!id) {
+    setError("Payroll ID is missing from the URL.");
+    setLoading(false);
+    return;
+  }
+
+  setLoading(true);
+  setError("");
+
+  try {
+    const response = await api.get(
+      `/payroll/${encodeURIComponent(id)}`
+    );
+
+    const data = response.data || {};
+
+    const record =
+      data.payroll ||
+      data.data?.payroll ||
+      data.data;
+
+    if (!record || typeof record !== "object") {
+      throw new Error("Payroll record was not returned by the server.");
     }
 
-    setLoading(true);
-    setError("");
-
-    try {
-      const token = localStorage.getItem("token");
-
-      const response = await fetch(
-        `${API_BASE_URL}/payroll/${encodeURIComponent(id)}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token
-              ? { Authorization: `Bearer ${token}` }
-              : {}),
-          },
-        }
-      );
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            data.error ||
-            "Unable to load payroll details."
-        );
-      }
-
-      const record = data.payroll || data.data?.payroll || data.data;
-
-      if (!record || typeof record !== "object") {
-        throw new Error("Payroll record was not returned by the server.");
-      }
-
-      setPayroll(record);
-    } catch (err) {
-      setError(err.message || "Unable to load payroll details.");
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+    setPayroll(record);
+  } catch (err) {
+    setError(
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      err.message ||
+      "Unable to load payroll details."
+    );
+  } finally {
+    setLoading(false);
+  }
+}, [id]);
 
   useEffect(() => {
     loadPayroll();
   }, [loadPayroll]);
 
   const updateStatus = async (status) => {
-    if (!payroll?._id && !payroll?.id) {
-      setActionType("error");
-      setActionMessage("Payroll ID is unavailable.");
-      return;
-    }
+  if (!payroll?._id && !payroll?.id) {
+    setActionType("error");
+    setActionMessage("Payroll ID is unavailable.");
+    return;
+  }
 
-    setSubmitting(true);
-    setActionMessage("");
+  setSubmitting(true);
+  setActionMessage("");
 
-    try {
-      const token = localStorage.getItem("token");
-      const payrollId = payroll._id || payroll.id;
+  try {
+    const payrollId = payroll._id || payroll.id;
 
-      const response = await fetch(
-        `${API_BASE_URL}/payroll/${encodeURIComponent(payrollId)}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token
-              ? { Authorization: `Bearer ${token}` }
-              : {}),
-          },
-          body: JSON.stringify({
-            status,
-            remarks: payroll.remarks || "",
-          }),
-        }
-      );
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            data.error ||
-            "Unable to update payroll status."
-        );
+    const response = await api.patch(
+      `/payroll/${encodeURIComponent(payrollId)}/status`,
+      {
+        status,
+        remarks: payroll.remarks || "",
       }
+    );
 
-      setActionType("success");
-      setActionMessage(
-        data.message || `Payroll status changed to ${status}.`
-      );
+    const data = response.data || {};
 
-      await loadPayroll();
-    } catch (err) {
-      setActionType("error");
-      setActionMessage(
-        err.message || "Unable to update payroll status."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    setActionType("success");
+    setActionMessage(
+      data.message || `Payroll status changed to ${status}.`
+    );
+
+    await loadPayroll();
+  } catch (err) {
+    setActionType("error");
+    setActionMessage(
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      err.message ||
+      "Unable to update payroll status."
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const employee = payroll?.employee || {};
   const status = String(payroll?.status || "draft").toLowerCase();

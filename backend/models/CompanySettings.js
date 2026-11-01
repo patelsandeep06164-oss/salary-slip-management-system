@@ -47,12 +47,12 @@ const companySettingsSchema = new mongoose.Schema(
       max: 12,
       default: 4,
     },
-    payrollDay: {
-      type: Number,
-      min: 1,
-      max: 28,
-      default: 28,
-    },
+  payrollDay: {
+  type: Number,
+  min: 1,
+  max: 31,
+  default: 30,
+},
     standardWorkingDaysPerMonth: {
       type: Number,
       min: 1,

@@ -7,7 +7,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
 router.use(authMiddleware);
-router.use(roleMiddleware("admin", "hr"));
+router.use(roleMiddleware("admin"));
 
 router.get("/dashboard", reportController.getDashboardReport);
 

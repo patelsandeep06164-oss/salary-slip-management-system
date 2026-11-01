@@ -1,28 +1,67 @@
+
 const mongoose = require("mongoose");
 const Notification = require("../models/Notification");
 
+// Get the authenticated Admin ID.
+const getAdminId = (req) => {
+  const adminId = req.user?.id || req.user?._id;
+
+  if (!adminId || !mongoose.isValidObjectId(adminId)) {
+    return null;
+  }
+
+  return adminId;
+};
+
 // GET /api/notifications
-// Admin notifications list + unread count
+// Return notifications belonging only to the logged-in Admin.
 const getNotifications = async (req, res, next) => {
   try {
-    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const adminId = getAdminId(req);
+
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authenticated Admin not found.",
+      });
+    }
+
+    const page = Math.max(
+      1,
+      Number.parseInt(req.query.page, 10) || 1
+    );
+
     const limit = Math.min(
       100,
-      Math.max(1, Number.parseInt(req.query.limit, 10) || 20)
+      Math.max(
+        1,
+        Number.parseInt(req.query.limit, 10) || 20
+      )
     );
 
     const skip = (page - 1) * limit;
 
-    const [notifications, total, unreadCount] = await Promise.all([
-      Notification.find({})
+    const filter = {
+      recipientAdmin: adminId,
+    };
+
+    const [
+      notifications,
+      total,
+      unreadCount,
+    ] = await Promise.all([
+      Notification.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
 
-      Notification.countDocuments({}),
+      Notification.countDocuments(filter),
 
-      Notification.countDocuments({ isRead: false }),
+      Notification.countDocuments({
+        ...filter,
+        isRead: false,
+      }),
     ]);
 
     return res.status(200).json({
@@ -42,8 +81,18 @@ const getNotifications = async (req, res, next) => {
 };
 
 // PATCH /api/notifications/:id/read
+// Mark only the authenticated Admin's notification as read.
 const markAsRead = async (req, res, next) => {
   try {
+    const adminId = getAdminId(req);
+
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authenticated Admin not found.",
+      });
+    }
+
     const { id } = req.params;
 
     if (!mongoose.isValidObjectId(id)) {
@@ -53,15 +102,21 @@ const markAsRead = async (req, res, next) => {
       });
     }
 
-    const notification = await Notification.findByIdAndUpdate(
-      id,
+    const notification = await Notification.findOneAndUpdate(
+      {
+        _id: id,
+        recipientAdmin: adminId,
+      },
       {
         $set: {
           isRead: true,
           readAt: new Date(),
         },
       },
-      { new: true, runValidators: true }
+      {
+        new: true,
+        runValidators: true,
+      }
     );
 
     if (!notification) {
@@ -82,10 +137,23 @@ const markAsRead = async (req, res, next) => {
 };
 
 // PATCH /api/notifications/read-all
+// Mark only the authenticated Admin's notifications as read.
 const markAllAsRead = async (req, res, next) => {
   try {
+    const adminId = getAdminId(req);
+
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authenticated Admin not found.",
+      });
+    }
+
     const result = await Notification.updateMany(
-      { isRead: false },
+      {
+        recipientAdmin: adminId,
+        isRead: false,
+      },
       {
         $set: {
           isRead: true,
@@ -96,7 +164,7 @@ const markAllAsRead = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      message: "All notifications marked as read.",
+      message: "All your notifications marked as read.",
       modifiedCount: result.modifiedCount,
     });
   } catch (error) {

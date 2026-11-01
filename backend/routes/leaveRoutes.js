@@ -14,7 +14,7 @@ router.get("/", leaveController.getLeaves);
 
 router.patch(
   "/:id/review",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
   leaveController.reviewLeave
 );
 

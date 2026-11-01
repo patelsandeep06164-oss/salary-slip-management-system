@@ -30,7 +30,7 @@ const generatePayroll = async (req, res, next) => {
 
 const getPayrollRecords = async (req, res, next) => {
   try {
-    if (!["admin", "hr", "employee"].includes(req.user?.role)) {
+    if (!["admin", "employee"].includes(req.user?.role)) {
       const error = new Error(
         "You are not authorized to view payroll records."
       );
@@ -73,7 +73,7 @@ const getPayrollRecords = async (req, res, next) => {
 
 const getPayrollById = async (req, res, next) => {
   try {
-    if (!["admin", "hr", "employee"].includes(req.user?.role)) {
+    if (!["admin", "employee"].includes(req.user?.role)) {
       const error = new Error(
         "You are not authorized to view payroll records."
       );

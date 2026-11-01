@@ -1,86 +1,163 @@
-
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+﻿const User = require("../models/User");
 const Employee = require("../models/Employee");
+const sessionService = require("../services/sessionService");
+const { getSessionToken } = require("../config/sessionCookie");
+
+const LOGIN_ALLOWED_EMPLOYEE_STATUSES = [
+  "active",
+  "on-leave",
+];
 
 const authMiddleware = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required. Please provide a valid token.",
-      });
-    }
-
-    const token = authHeader.split(" ")[1];
+    const token = getSessionToken(req);
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Access token is missing.",
+        message: "Authentication required. Please login.",
       });
     }
 
-    if (!process.env.JWT_SECRET) {
-      return res.status(500).json({
-        success: false,
-        message: "Authentication configuration error.",
-      });
-    }
+    const session = await sessionService.getActiveSession(token);
 
-    let decoded;
-
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
+    if (!session) {
       return res.status(401).json({
         success: false,
-        message:
-          error.name === "TokenExpiredError"
-            ? "Session expired. Please login again."
-            : "Invalid authentication token.",
+        message: "Session expired or invalid. Please login again.",
       });
     }
 
-    const userId = decoded.id || decoded.userId || decoded._id;
-
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid token payload.",
-      });
-    }
-
-    const user = await User.findById(userId).select(
-      "_id name email role isActive"
+    const user = await User.findById(session.userId).select(
+      "_id name email role isActive adminApprovalStatus passwordChangedAt"
     );
 
-    if (!user || user.isActive === false) {
+    if (!user) {
+      await sessionService.revokeSession(
+        token,
+        "account-disabled"
+      );
+
       return res.status(401).json({
         success: false,
-        message: "User account not found or inactive.",
+        message: "User account not found.",
+      });
+    }
+
+    // Reject sessions created before or at password-change time.
+    if (
+      user.passwordChangedAt &&
+      session.createdAt &&
+      new Date(session.createdAt).getTime() <=
+        new Date(user.passwordChangedAt).getTime()
+    ) {
+      await sessionService.revokeSession(
+        token,
+        "password-change"
+      );
+
+      return res.status(401).json({
+        success: false,
+        message: "Password changed. Please login again.",
+      });
+    }
+
+    // Admin approval verification.
+    // Legacy Admin accounts without approval status remain valid.
+    if (user.role === "admin") {
+      if (user.adminApprovalStatus === "pending") {
+        await sessionService.revokeSession(
+          token,
+          "admin-pending"
+        );
+
+        return res.status(403).json({
+          success: false,
+          message: "Your Admin registration is pending approval.",
+          approvalStatus: "pending",
+        });
+      }
+
+      if (user.adminApprovalStatus === "rejected") {
+        await sessionService.revokeSession(
+          token,
+          "admin-rejected"
+        );
+
+        return res.status(403).json({
+          success: false,
+          message: "Your Admin registration has been rejected.",
+          approvalStatus: "rejected",
+        });
+      }
+
+      if (
+        user.adminApprovalStatus &&
+        user.adminApprovalStatus !== "approved"
+      ) {
+        await sessionService.revokeSession(
+          token,
+          "invalid-admin-approval"
+        );
+
+        return res.status(403).json({
+          success: false,
+          message: "Admin approval status is invalid.",
+        });
+      }
+    }
+
+    if (user.isActive !== true) {
+      await sessionService.revokeSession(
+        token,
+        "account-disabled"
+      );
+
+      return res.status(401).json({
+        success: false,
+        message: "User account is inactive.",
       });
     }
 
     let employeeId = null;
 
+    // Verify Employee profile and status on every API request.
     if (user.role === "employee") {
       const employee = await Employee.findOne({
         user: user._id,
-        status: "active",
-      }).select("_id");
+        status: {
+          $in: LOGIN_ALLOWED_EMPLOYEE_STATUSES,
+        },
+      }).select("_id status");
 
       if (!employee) {
+        await sessionService.revokeSession(
+          token,
+          "employee-inactive-or-unlinked"
+        );
+
         return res.status(403).json({
           success: false,
-          message: "No active employee profile is linked to this account.",
+          message:
+            "Your employee account is inactive, terminated or not linked.",
         });
       }
 
       employeeId = employee._id.toString();
+    } else if (user.role !== "admin") {
+      await sessionService.revokeSession(
+        token,
+        "invalid-account-role"
+      );
+
+      return res.status(403).json({
+        success: false,
+        message: "Invalid account role.",
+      });
     }
+
+    // Update session activity after successful authentication.
+    await sessionService.updateSessionActivity(session._id);
 
     req.user = {
       id: user._id.toString(),
@@ -91,9 +168,14 @@ const authMiddleware = async (req, res, next) => {
       employeeId,
     };
 
-    next();
+    req.authSession = {
+      id: session._id.toString(),
+      expiresAt: session.expiresAt,
+    };
+
+    return next();
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 

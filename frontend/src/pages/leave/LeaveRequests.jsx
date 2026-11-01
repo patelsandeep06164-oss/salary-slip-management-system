@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FaSearch,
@@ -20,16 +19,7 @@ import {
   FaArrowRight,
 } from "react-icons/fa";
 import "./LeaveRequests.css";
-
-/*
-  BACKEND INTEGRATION
-  Change API_BASE_URL if your backend uses another base URL.
-  Expected endpoints:
-  GET   /api/leave-requests
-  PATCH /api/leave-requests/:id/status
-*/
-
-const API_BASE_URL = "/api/leave-requests";
+import api, { getApiError } from "../../services/api";
 
 const LEAVE_TYPES = [
   "Casual Leave",
@@ -40,10 +30,6 @@ const LEAVE_TYPES = [
 ];
 
 const STATUS_OPTIONS = ["Pending", "Approved", "Rejected"];
-
-function getToken() {
-  return localStorage.getItem("token") || "";
-}
 
 function getRequestId(request) {
   return request?._id || request?.id || request?.leaveId || "";
@@ -79,7 +65,6 @@ function getStatus(status) {
   return "Pending";
 }
 
-
 function formatDate(value) {
   if (!value) return "—";
 
@@ -112,45 +97,8 @@ function calculateDays(startDate, endDate, savedDays) {
   return Math.round((end - start) / 86400000) + 1;
 }
 
-function getErrorMessage(error, fallback) {
-  return (
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.message ||
-    fallback
-  );
-}
-
-async function apiRequest(url, options = {}) {
-  const token = getToken();
-
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
-
-  const contentType = response.headers.get("content-type") || "";
-  const data = contentType.includes("application/json")
-    ? await response.json()
-    : await response.text();
-
-  if (!response.ok) {
-    const message =
-      typeof data === "object"
-        ? data?.message || data?.error
-        : data;
-
-    throw new Error(
-      message || `Request failed with status ${response.status}`
-    );
-  }
-
-  return data;
+function getRequestError(error, fallback) {
+  return getApiError(error, fallback);
 }
 
 function extractRequests(data) {
@@ -180,6 +128,7 @@ function LeaveRequests() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
 
+  // Fetch leave requests from the authenticated backend.
   const loadRequests = useCallback(async (showRefresh = false) => {
     setError("");
     setNotice("");
@@ -191,11 +140,11 @@ function LeaveRequests() {
     }
 
     try {
-      const result = await apiRequest(API_BASE_URL);
-      setRequests(extractRequests(result));
+      const response = await api.get("/leaves");
+      setRequests(extractRequests(response.data));
     } catch (err) {
       setError(
-        getErrorMessage(
+        getRequestError(
           err,
           "Unable to load leave requests. Please check your backend API."
         )
@@ -231,9 +180,11 @@ function LeaveRequests() {
     return requests.filter((request) => {
       const employeeName = getEmployeeName(request).toLowerCase();
       const employeeId = String(getEmployeeId(request)).toLowerCase();
+
       const email = String(
         request.email || request.employee?.email || ""
       ).toLowerCase();
+
       const leaveType = String(request.leaveType || "").toLowerCase();
       const reason = String(request.reason || "").toLowerCase();
 
@@ -268,6 +219,7 @@ function LeaveRequests() {
     });
   }, [requests, search, statusFilter, typeFilter, fromDate, toDate]);
 
+  // Approve or reject a pending leave request.
   const handleStatusUpdate = async () => {
     if (!confirmAction) return;
 
@@ -288,27 +240,20 @@ function LeaveRequests() {
     setNotice("");
 
     try {
-      /*
-        Expected backend:
-        PATCH /api/leave-requests/:id/status
-        Body: { "status": "Approved" } or { "status": "Rejected" }
-
-        Adjust this URL or payload to match your backend route.
-      */
-      const result = await apiRequest(
-        `${API_BASE_URL}/${encodeURIComponent(id)}/status`,
+      const response = await api.patch(
+        `/leaves/${encodeURIComponent(id)}/review`,
         {
-          method: "PATCH",
-          body: JSON.stringify({ status: nextStatus }),
+          status: nextStatus.toLowerCase(),
+          reviewRemarks: "",
         }
       );
 
+      const result = response.data;
+
       const updatedRequest =
-        result?.request ||
-        result?.leaveRequest ||
-        result?.data?.request ||
-        result?.data?.leaveRequest ||
-        result?.data;
+        result?.leave ||
+        result?.data?.leave ||
+        null;
 
       setRequests((previous) =>
         previous.map((item) => {
@@ -351,7 +296,7 @@ function LeaveRequests() {
       setConfirmAction(null);
     } catch (err) {
       setError(
-        getErrorMessage(
+        getRequestError(
           err,
           "Unable to update the leave request. Please try again."
         )
@@ -370,8 +315,11 @@ function LeaveRequests() {
   };
 
   const hasFilters =
-    search || statusFilter !== "All" || typeFilter !== "All" ||
-    fromDate || toDate;
+    search ||
+    statusFilter !== "All" ||
+    typeFilter !== "All" ||
+    fromDate ||
+    toDate;
 
   const activeRequest = selectedRequest
     ? requests.find(
@@ -646,6 +594,7 @@ function LeaveRequests() {
                   const status = getStatus(request.status);
                   const employeeName = getEmployeeName(request);
                   const employeeId = getEmployeeId(request);
+
                   const days = calculateDays(
                     request.startDate,
                     request.endDate,
@@ -855,12 +804,16 @@ function LeaveRequests() {
 
               <div className="lr-detail-grid">
                 <div className="lr-detail-item">
-                  <span><FaFileAlt /> Leave type</span>
+                  <span>
+                    <FaFileAlt /> Leave type
+                  </span>
                   <strong>{activeRequest.leaveType || "—"}</strong>
                 </div>
 
                 <div className="lr-detail-item">
-                  <span><FaCalendarAlt /> Duration</span>
+                  <span>
+                    <FaCalendarAlt /> Duration
+                  </span>
                   <strong>
                     {calculateDays(
                       activeRequest.startDate,
@@ -872,17 +825,23 @@ function LeaveRequests() {
                 </div>
 
                 <div className="lr-detail-item">
-                  <span><FaRegCalendarCheck /> Start date</span>
+                  <span>
+                    <FaRegCalendarCheck /> Start date
+                  </span>
                   <strong>{formatDate(activeRequest.startDate)}</strong>
                 </div>
 
                 <div className="lr-detail-item">
-                  <span><FaRegCalendarCheck /> End date</span>
+                  <span>
+                    <FaRegCalendarCheck /> End date
+                  </span>
                   <strong>{formatDate(activeRequest.endDate)}</strong>
                 </div>
 
                 <div className="lr-detail-item">
-                  <span><FaCalendarAlt /> Applied on</span>
+                  <span>
+                    <FaCalendarAlt /> Applied on
+                  </span>
                   <strong>
                     {formatDate(
                       activeRequest.appliedOn || activeRequest.createdAt
@@ -891,7 +850,9 @@ function LeaveRequests() {
                 </div>
 
                 <div className="lr-detail-item">
-                  <span><FaBuilding /> Department</span>
+                  <span>
+                    <FaBuilding /> Department
+                  </span>
                   <strong>
                     {activeRequest.department ||
                       activeRequest.employee?.department ||
@@ -900,7 +861,9 @@ function LeaveRequests() {
                 </div>
 
                 <div className="lr-detail-item lr-detail-full">
-                  <span><FaEnvelope /> Email address</span>
+                  <span>
+                    <FaEnvelope /> Email address
+                  </span>
                   <strong>
                     {activeRequest.email ||
                       activeRequest.employee?.email ||
@@ -909,17 +872,21 @@ function LeaveRequests() {
                 </div>
 
                 <div className="lr-detail-item lr-detail-full">
-                  <span><FaUser /> Reason for leave</span>
+                  <span>
+                    <FaUser /> Reason for leave
+                  </span>
                   <p className="lr-reason-text">
                     {activeRequest.reason || "No reason provided."}
                   </p>
                 </div>
 
-                {activeRequest.adminRemarks && (
+                {activeRequest.reviewRemarks && (
                   <div className="lr-detail-item lr-detail-full">
-                    <span><FaInfoCircle /> Administrator remarks</span>
+                    <span>
+                      <FaInfoCircle /> Administrator remarks
+                    </span>
                     <p className="lr-reason-text">
-                      {activeRequest.adminRemarks}
+                      {activeRequest.reviewRemarks}
                     </p>
                   </div>
                 )}

@@ -1,5 +1,6 @@
-const formatCurrency = require("../utils/formatCurrency");
-const formatDate = require("../utils/formatDate");
+
+const formatCurrency = require("../../utils/formatCurrency");
+const formatDate = require("../../utils/formatDate");
 
 const escapeHtml = (value = "") =>
   String(value)
@@ -21,55 +22,99 @@ const safeCurrency = (value, currency) => {
 
 const salarySlipTemplate = (data = {}) => {
   const {
-    company = {},
-    employee = {},
-    payroll = {},
-    salarySlip = {},
-  } = data;
+    company: companyData,
+    employee: employeeData,
+    payroll: payrollData,
+    salarySlip: salarySlipData,
+  } = data || {};
+
+  const company = companyData || {};
+  const employee = employeeData || {};
+  const payroll = payrollData || {};
+  const salarySlip = salarySlipData || {};
 
   const currency = company.currency || "INR";
+
   const companyName = escapeHtml(company.companyName || "Your Company");
   const companyAddress = escapeHtml(company.address || "");
   const companyEmail = escapeHtml(company.email || "");
   const companyPhone = escapeHtml(company.phone || "");
 
-  const employeeName = escapeHtml(employee.name || employee.fullName || "Employee");
-  const employeeId = escapeHtml(employee.employeeId || employee._id || "N/A");
-  const department = escapeHtml(employee.departmentName || employee.department?.name || "N/A");
-  const designation = escapeHtml(employee.designation || employee.position || "N/A");
+  const fullName =
+    employee.name ||
+    employee.fullName ||
+    [employee.firstName, employee.lastName].filter(Boolean).join(" ") ||
+    "Employee";
+
+  const employeeName = escapeHtml(fullName);
+  const employeeId = escapeHtml(
+    employee.employeeCode || employee.employeeId || employee._id || "N/A"
+  );
+
+  const department = escapeHtml(
+    employee.departmentName || employee.department?.name || "N/A"
+  );
+
+  const designation = escapeHtml(
+    employee.designation || employee.position || "N/A"
+  );
+
   const employeeEmail = escapeHtml(employee.email || "N/A");
 
   const month = salarySlip.month ?? payroll.month;
   const year = salarySlip.year ?? payroll.year;
 
   const salaryPeriod =
-    month && year
-      ? new Date(Number(year), Number(month) - 1, 1).toLocaleDateString("en-IN", {
-          month: "long",
-          year: "numeric",
-        })
+    month != null && year != null
+      ? new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(
+          "en-IN",
+          {
+            month: "long",
+            year: "numeric",
+          }
+        )
       : "Not specified";
 
-  const issueDate = salarySlip.issueDate || salarySlip.createdAt || new Date();
+  const issueDate =
+    salarySlip.issueDate || salarySlip.createdAt || new Date();
+
   const formattedIssueDate = formatDate(issueDate);
 
-  const basicSalary = Number(payroll.basicSalary ?? employee.basicSalary ?? 0);
-  const hra = Number(payroll.hra ?? payroll.houseRentAllowance ?? 0);
+  const basicSalary = Number(
+    payroll.basicSalary ?? employee.basicSalary ?? 0
+  );
+
+  const hra = Number(
+    payroll.hra ?? payroll.houseRentAllowance ?? 0
+  );
+
   const allowances = Number(payroll.allowances ?? 0);
   const bonus = Number(payroll.bonus ?? payroll.bonuses ?? 0);
-  const overtime = Number(payroll.overtimeAmount ?? 0);
+
+  const overtime = Number(
+    payroll.overtimePay ?? payroll.overtimeAmount ?? 0
+  );
 
   const grossSalary = Number(
     payroll.grossSalary ??
       basicSalary + hra + allowances + bonus + overtime
   );
 
-  const pf = Number(payroll.pf ?? payroll.providentFund ?? 0);
-  const tax = Number(payroll.tax ?? payroll.incomeTax ?? 0);
-  const otherDeductions = Number(payroll.otherDeductions ?? payroll.deductions ?? 0);
+  const tax = Number(
+    payroll.taxDeduction ?? payroll.tax ?? payroll.incomeTax ?? 0
+  );
+
+  const unpaidLeaveDeduction = Number(
+    payroll.unpaidLeaveDeduction ?? 0
+  );
+
+  const otherDeductions = Number(
+    payroll.deductions ?? payroll.otherDeductions ?? 0
+  );
 
   const totalDeductions = Number(
-    payroll.totalDeductions ?? pf + tax + otherDeductions
+    payroll.totalDeductions ??
+      tax + unpaidLeaveDeduction + otherDeductions
   );
 
   const netSalary = Number(
@@ -83,14 +128,26 @@ const salarySlipTemplate = (data = {}) => {
     ["House Rent Allowance", hra],
     ["Other Allowances", allowances],
     ["Bonus", bonus],
-    ["Overtime", overtime],
+    ["Overtime Pay", overtime],
   ];
 
   const deductionRows = [
-    ["Provident Fund", pf],
-    ["Income Tax", tax],
+    ["Tax Deduction", tax],
+    ["Unpaid Leave Deduction", unpaidLeaveDeduction],
     ["Other Deductions", otherDeductions],
   ];
+
+  const amounts = [
+    ...amountRows.map((row) => row[1]),
+    ...deductionRows.map((row) => row[1]),
+    grossSalary,
+    totalDeductions,
+    netSalary,
+  ];
+
+  if (!amounts.every(Number.isFinite)) {
+    throw new TypeError("Salary slip contains an invalid salary amount.");
+  }
 
   const renderRows = (rows) =>
     rows
@@ -110,8 +167,10 @@ const salarySlipTemplate = (data = {}) => {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Salary Slip - ${employeeName}</title>
+
   <style>
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       padding: 24px;
@@ -120,26 +179,33 @@ const salarySlipTemplate = (data = {}) => {
       background: #eef4f8;
       font-size: 12px;
     }
+
     .salary-slip {
       max-width: 850px;
       margin: 0 auto;
       background: #fff;
       border: 1px solid #dce5ec;
     }
+
     .header {
       padding: 28px 30px;
       color: #fff;
       background: #087f8c;
     }
+
     .header h1 { margin: 0 0 8px; font-size: 25px; }
     .header p { margin: 4px 0; line-height: 1.6; }
+
     .title {
       padding: 22px 30px;
       border-bottom: 1px solid #dce5ec;
     }
+
     .title h2 { margin: 0 0 8px; font-size: 20px; }
     .title p { margin: 0; color: #64748b; }
+
     .content { padding: 24px 30px 30px; }
+
     .section-title {
       margin: 22px 0 10px;
       font-size: 13px;
@@ -147,6 +213,7 @@ const salarySlipTemplate = (data = {}) => {
       text-transform: uppercase;
       letter-spacing: .5px;
     }
+
     .details {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -155,13 +222,35 @@ const salarySlipTemplate = (data = {}) => {
       background: #f6fafc;
       border: 1px solid #e1eaf0;
     }
-    .detail-label { color: #64748b; font-size: 10px; margin-bottom: 5px; }
-    .detail-value { font-weight: bold; overflow-wrap: anywhere; }
+
+    .detail-label {
+      color: #64748b;
+      font-size: 10px;
+      margin-bottom: 5px;
+    }
+
+    .detail-value {
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 11px 12px; border: 1px solid #e1eaf0; text-align: left; }
+
+    th, td {
+      padding: 11px 12px;
+      border: 1px solid #e1eaf0;
+      text-align: left;
+    }
+
     th { background: #f1f6f8; font-size: 11px; }
+
     .amount { text-align: right; white-space: nowrap; }
-    .total td { font-weight: bold; background: #f1fbfc; }
+
+    .total td {
+      font-weight: bold;
+      background: #f1fbfc;
+    }
+
     .net {
       margin-top: 22px;
       padding: 18px;
@@ -172,9 +261,18 @@ const salarySlipTemplate = (data = {}) => {
       justify-content: space-between;
       gap: 12px;
     }
+
     .net-label { font-size: 13px; font-weight: bold; }
-    .net-value { color: #087f8c; font-size: 23px; font-weight: bold; text-align: right; }
+
+    .net-value {
+      color: #087f8c;
+      font-size: 23px;
+      font-weight: bold;
+      text-align: right;
+    }
+
     .words { margin-top: 14px; color: #536477; line-height: 1.7; }
+
     .footer {
       padding: 18px 30px;
       border-top: 1px solid #dce5ec;
@@ -183,21 +281,32 @@ const salarySlipTemplate = (data = {}) => {
       line-height: 1.7;
       text-align: center;
     }
+
     @media print {
       body { padding: 0; background: #fff; }
       .salary-slip { max-width: none; border: none; }
     }
+
     @media (max-width: 520px) {
       body { padding: 8px; }
-      .header, .title, .content, .footer { padding-left: 16px; padding-right: 16px; }
+
+      .header, .title, .content, .footer {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
       .details { grid-template-columns: 1fr; }
+
       th, td { padding: 8px 6px; font-size: 10px; }
+
       .net-value { font-size: 18px; }
     }
   </style>
 </head>
+
 <body>
   <main class="salary-slip">
+
     <header class="header">
       <h1>${companyName}</h1>
       ${companyAddress ? `<p>${companyAddress}</p>` : ""}
@@ -211,28 +320,35 @@ const salarySlipTemplate = (data = {}) => {
     </section>
 
     <section class="content">
+
       <h3 class="section-title">Employee Information</h3>
+
       <div class="details">
         <div>
           <div class="detail-label">Employee Name</div>
           <div class="detail-value">${employeeName}</div>
         </div>
+
         <div>
           <div class="detail-label">Employee ID</div>
           <div class="detail-value">${employeeId}</div>
         </div>
+
         <div>
           <div class="detail-label">Department</div>
           <div class="detail-value">${department}</div>
         </div>
+
         <div>
           <div class="detail-label">Designation</div>
           <div class="detail-value">${designation}</div>
         </div>
+
         <div>
           <div class="detail-label">Email</div>
           <div class="detail-value">${employeeEmail}</div>
         </div>
+
         <div>
           <div class="detail-label">Issue Date</div>
           <div class="detail-value">${escapeHtml(formattedIssueDate)}</div>
@@ -240,10 +356,18 @@ const salarySlipTemplate = (data = {}) => {
       </div>
 
       <h3 class="section-title">Earnings</h3>
+
       <table>
-        <thead><tr><th>Description</th><th class="amount">Amount</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th class="amount">Amount</th>
+          </tr>
+        </thead>
+
         <tbody>
           ${renderRows(amountRows)}
+
           <tr class="total">
             <td>Gross Salary</td>
             <td class="amount">${safeCurrency(grossSalary, currency)}</td>
@@ -252,10 +376,18 @@ const salarySlipTemplate = (data = {}) => {
       </table>
 
       <h3 class="section-title">Deductions</h3>
+
       <table>
-        <thead><tr><th>Description</th><th class="amount">Amount</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th class="amount">Amount</th>
+          </tr>
+        </thead>
+
         <tbody>
           ${renderRows(deductionRows)}
+
           <tr class="total">
             <td>Total Deductions</td>
             <td class="amount">${safeCurrency(totalDeductions, currency)}</td>
@@ -269,15 +401,17 @@ const salarySlipTemplate = (data = {}) => {
       </div>
 
       <p class="words">
-        This salary slip is generated electronically. Please contact HR or Payroll
-        if you notice any discrepancy in the information above.
+        This salary slip is generated electronically.
+        Please contact your Admin if you notice any discrepancy.
       </p>
+
     </section>
 
     <footer class="footer">
       This is a computer-generated salary slip and does not require a physical signature.<br />
       &copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.
     </footer>
+
   </main>
 </body>
 </html>`;

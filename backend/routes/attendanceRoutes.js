@@ -10,7 +10,7 @@ router.use(authMiddleware);
 
 router.post(
   "/",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
   attendanceController.markAttendance
 );
 

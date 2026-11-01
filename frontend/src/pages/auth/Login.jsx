@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -36,11 +35,16 @@ function Login() {
     rememberMe: false,
   });
 
+  const [otp, setOtp] = useState("");
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [otpStep, setOtpStep] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState("employee");
 
-  // Handle all form inputs
+  // Handle form inputs
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
 
@@ -52,54 +56,116 @@ function Login() {
     setError("");
   };
 
-  // Validate and submit login form
+  // Validate email
+  const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  // Redirect according to role
+  const redirectUser = (user) => {
+    const role = String(user?.role || "")
+      .trim()
+      .toLowerCase();
+
+    if (!["admin", "employee"].includes(role)) {
+      throw new Error(
+        "Your account role is not supported. Please contact the administrator."
+      );
+    }
+
+    if (role === "admin") {
+      navigate("/admin/dashboard", { replace: true });
+    } else {
+      navigate("/employee/dashboard", { replace: true });
+    }
+  };
+
+  // Handle login and Admin OTP verification
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
-
-    const email = formData.email.trim().toLowerCase();
-    const password = formData.password;
-
-    if (!email || !password) {
-      setError("Please enter your email address and password.");
-      return;
-    }
-
-    // Correct email validation regex
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-
     setLoading(true);
 
     try {
+      // STEP 1: ADMIN OTP VERIFICATION
+      if (otpStep) {
+        if (selectedRole !== "admin") {
+          throw new Error(
+            "Admin verification is required only for Admin accounts."
+          );
+        }
+
+        if (!/^\d{6}$/.test(otp)) {
+          setError("Please enter a valid 6-digit OTP.");
+          return;
+        }
+
+        const response = await authService.verifyAdminLoginOtp({
+          email: pendingEmail,
+          otp,
+        });
+
+        const user = response?.user || response?.data?.user;
+
+        if (!user) {
+          throw new Error(
+            "Admin verification response does not contain user information."
+          );
+        }
+
+        const role = String(user.role || "")
+          .trim()
+          .toLowerCase();
+
+        if (role !== "admin") {
+          throw new Error("Admin authentication failed.");
+        }
+
+        login(user);
+        redirectUser(user);
+        return;
+      }
+
+      // STEP 2: INITIAL LOGIN VALIDATION
+      const email = formData.email.trim().toLowerCase();
+      const password = formData.password;
+
+      if (!email || !password) {
+        setError("Please enter your email address and password.");
+        return;
+      }
+
+      if (!isValidEmail(email)) {
+        setError("Please enter a valid email address.");
+        return;
+      }
+
+      // STEP 3: SEND LOGIN REQUEST
       const response = await authService.login({
         email,
         password,
+        role: selectedRole,
       });
 
-      // Support common backend response structures
-      const data = response?.data || response;
+      // STEP 4: ADMIN OTP REQUIRED
+      if (response?.otpRequired === true) {
+        if (selectedRole !== "admin") {
+          throw new Error("Unexpected Admin OTP response.");
+        }
 
-      const user =
-        data?.user ||
-        data?.data?.user ||
-        authService.getStoredUser();
+        setPendingEmail(email);
+        setOtp("");
+        setOtpStep(true);
+        setError("");
+        return;
+      }
 
-      const token =
-        data?.token ||
-        data?.accessToken ||
-        data?.data?.token ||
-        data?.data?.accessToken ||
-        localStorage.getItem("token");
+      // STEP 5: EMPLOYEE LOGIN
+      const user = response?.user || response?.data?.user;
 
-      // Verify successful authentication
-      if (!user || !token) {
-        authService.logout();
-
+      if (!user) {
         throw new Error(
-          "Login response is missing the user or authentication token. Please check the backend API response."
+          "Login response does not contain user information."
         );
       }
 
@@ -107,32 +173,18 @@ function Login() {
         .trim()
         .toLowerCase();
 
-      // Only supported roles can access the application
-      if (!["admin", "employee"].includes(role)) {
-        authService.logout();
+      if (selectedRole === "admin") {
+        throw new Error("Admin email OTP verification is required.");
+      }
 
+      if (role !== selectedRole) {
         throw new Error(
-          "Your account role is not supported. Please contact the administrator."
+          "Your account does not match the selected account type."
         );
       }
 
-      // Save Remember me preference
-      if (formData.rememberMe) {
-        localStorage.setItem("rememberMe", "true");
-      } else {
-        localStorage.removeItem("rememberMe");
-      }
-
-      // Update the global authentication context
-      login(user, token);
-
-      // Redirect based on the authenticated user's role
-      navigate(
-        role === "admin"
-          ? "/admin/dashboard"
-          : "/employee/dashboard",
-        { replace: true }
-      );
+      login(user);
+      redirectUser(user);
     } catch (requestError) {
       setError(
         getApiError(
@@ -143,6 +195,14 @@ function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Return from OTP screen to password screen
+  const handleBackToLogin = () => {
+    setOtpStep(false);
+    setOtp("");
+    setPendingEmail("");
+    setError("");
   };
 
   return (
@@ -378,8 +438,7 @@ function Login() {
             </span>
           </div>
         </section>
-
-        {/* RIGHT LOGIN PANEL */}
+                {/* RIGHT LOGIN PANEL */}
         <section className="auth-form-panel login-form-panel">
           <div className="auth-mobile-brand">
             <span className="auth-brand-icon">
@@ -399,15 +458,62 @@ function Login() {
 
           <div className="auth-form-heading">
             <span className="auth-form-label">
-              WELCOME BACK!
+              {otpStep ? "ADMIN SECURITY VERIFICATION" : "WELCOME BACK!"}
             </span>
 
-            <h2>Sign in to your account</h2>
+            <h2>
+              {otpStep
+                ? "Verify your Admin email"
+                : "Sign in to your account"}
+            </h2>
 
             <p>
-              Enter your credentials to access your payroll dashboard.
+              {otpStep
+                ? `Enter the 6-digit OTP sent to ${pendingEmail}.`
+                : "Enter your credentials to access your payroll dashboard."}
             </p>
           </div>
+
+          {/* ACCOUNT ROLE SELECTOR */}
+          {!otpStep && (
+            <div
+              className="login-role-selector"
+              role="group"
+              aria-label="Select account type"
+            >
+              <button
+                type="button"
+                className={`login-role-option ${
+                  selectedRole === "employee" ? "active" : ""
+                }`}
+                onClick={() => {
+                  setSelectedRole("employee");
+                  setError("");
+                }}
+                disabled={loading}
+                aria-pressed={selectedRole === "employee"}
+              >
+                <FaUsers />
+                <span>Employee</span>
+              </button>
+
+              <button
+                type="button"
+                className={`login-role-option ${
+                  selectedRole === "admin" ? "active" : ""
+                }`}
+                onClick={() => {
+                  setSelectedRole("admin");
+                  setError("");
+                }}
+                disabled={loading}
+                aria-pressed={selectedRole === "admin"}
+              >
+                <FaShieldAlt />
+                <span>Admin</span>
+              </button>
+            </div>
+          )}
 
           {error && (
             <div
@@ -443,67 +549,103 @@ function Login() {
                   autoComplete="username"
                   autoFocus
                   required
-                  disabled={loading}
+                  disabled={loading || otpStep}
                 />
               </div>
             </div>
 
-            <div className="auth-field">
-              <label htmlFor="login-password">
-                Password
-              </label>
+            {!otpStep ? (
+              <div className="auth-field">
+                <label htmlFor="login-password">
+                  Password
+                </label>
 
-              <div className="auth-input-wrap">
-                <FaLock className="auth-input-icon" />
+                <div className="auth-input-wrap">
+                  <FaLock className="auth-input-icon" />
 
-                <input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  autoComplete="current-password"
-                  required
-                  disabled={loading}
-                />
+                  <input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    autoComplete="current-password"
+                    required
+                    disabled={loading}
+                  />
 
-                <button
-                  type="button"
-                  className="auth-password-toggle"
-                  onClick={() =>
-                    setShowPassword((previous) => !previous)
-                  }
-                  aria-label={
-                    showPassword ? "Hide password" : "Show password"
-                  }
-                  disabled={loading}
+                  <button
+                    type="button"
+                    className="auth-password-toggle"
+                    onClick={() =>
+                      setShowPassword((previous) => !previous)
+                    }
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    disabled={loading}
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="auth-field">
+                <label htmlFor="admin-login-otp">
+                  Admin Email OTP
+                </label>
+
+                <div className="auth-input-wrap">
+                  <FaFingerprint className="auth-input-icon" />
+
+                  <input
+                    id="admin-login-otp"
+                    type="text"
+                    inputMode="numeric"
+                    name="otp"
+                    placeholder="Enter 6-digit OTP"
+                    value={otp}
+                    onChange={(event) => {
+                      setOtp(
+                        event.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 6)
+                      );
+                      setError("");
+                    }}
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    required
+                    autoFocus
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            )}
+
+            {!otpStep && (
+              <div className="auth-form-options">
+                <label className="auth-checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="rememberMe"
+                    checked={formData.rememberMe}
+                    onChange={handleChange}
+                    disabled={loading}
+                  />
+
+                  <span>Remember me</span>
+                </label>
+
+                <Link
+                  to="/forgot-password"
+                  className="auth-text-link"
                 >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </button>
+                  Forgot password?
+                </Link>
               </div>
-            </div>
-
-            <div className="auth-form-options">
-              <label className="auth-checkbox-label">
-                <input
-                  type="checkbox"
-                  name="rememberMe"
-                  checked={formData.rememberMe}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-
-                <span>Remember me</span>
-              </label>
-
-              <Link
-                to="/forgot-password"
-                className="auth-text-link"
-              >
-                Forgot password?
-              </Link>
-            </div>
+            )}
 
             <button
               type="submit"
@@ -511,16 +653,44 @@ function Login() {
               disabled={loading}
             >
               <span>
-                {loading ? "Signing you in..." : "Sign In"}
+                {loading
+                  ? "Please wait..."
+                  : otpStep
+                    ? "Verify OTP"
+                    : "Sign In"}
               </span>
 
               {!loading && <FaArrowRight />}
 
               {loading && <span className="login-spinner" />}
             </button>
+
+            {otpStep && (
+              <button
+                type="button"
+                className="auth-text-link"
+                onClick={handleBackToLogin}
+                disabled={loading}
+              >
+                Back to Login
+              </button>
+            )}
           </form>
 
-          <div className="auth-security-note">
+          {!otpStep && (
+            <div className="login-register-prompt">
+              <span>New to SalarySlip?</span>
+
+              <Link
+                to="/register"
+                className="login-register-button"
+              >
+                Register Your Account
+                <FaArrowRight />
+              </Link>
+            </div>
+          )}
+                    <div className="auth-security-note">
             <span className="security-note-icon">
               <FaFingerprint />
             </span>
@@ -549,6 +719,7 @@ function Login() {
 
             <div>
               <strong>Need access to your account?</strong>
+
               <p>
                 Contact your company administrator for assistance.
               </p>

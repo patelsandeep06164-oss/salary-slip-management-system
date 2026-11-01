@@ -30,10 +30,15 @@ const checkIn = async (req, res, next) => {
       throw error;
     }
 
-    const attendance = await attendanceService.checkIn(
-      employeeId,
-      req.body.date || new Date()
-    );
+    const attendanceDate =
+  req.user?.role === "employee"
+    ? new Date()
+    : req.body.date || new Date();
+
+const attendance = await attendanceService.checkIn(
+  employeeId,
+  attendanceDate
+);
 
     res.status(200).json({
       success: true,
@@ -58,10 +63,15 @@ const checkOut = async (req, res, next) => {
       throw error;
     }
 
-    const attendance = await attendanceService.checkOut(
-      employeeId,
-      req.body.date || new Date()
-    );
+    const attendanceDate =
+  req.user?.role === "employee"
+    ? new Date()
+    : req.body.date || new Date();
+
+const attendance = await attendanceService.checkOut(
+  employeeId,
+  attendanceDate
+);
 
     res.status(200).json({
       success: true,

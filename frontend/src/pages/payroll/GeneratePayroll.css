@@ -954,3 +954,268 @@
     font-size: 10px;
   }
 }
+
+
+/* =========================================
+   Generate Payroll - JSX Compatibility Fix
+========================================= */
+
+/* Main form layout */
+.generate-payroll-page .generate-payroll-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: 22px;
+  width: 100%;
+}
+
+.generate-payroll-page .generate-form-main {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+.generate-payroll-page .generate-payroll-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.generate-payroll-page .generate-payroll-sidebar .generate-form-card {
+  width: 100%;
+}
+
+/* Salary preview */
+.generate-payroll-page .generate-salary-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  padding: 15px 18px;
+  border: 1px solid #e0edf3;
+  border-radius: 13px;
+  background: #f8fcff;
+}
+
+.generate-payroll-page .generate-salary-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px dashed #dce8f0;
+}
+
+.generate-payroll-page .generate-salary-row:last-child {
+  border-bottom: none;
+}
+
+.generate-payroll-page .generate-salary-row span {
+  flex: 1;
+  min-width: 0;
+  color: #71859a;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.generate-payroll-page .generate-salary-row strong {
+  max-width: 48%;
+  overflow-wrap: anywhere;
+  color: #28465e;
+  font-size: 12px;
+  font-weight: 750;
+  text-align: right;
+}
+
+.generate-payroll-page .generate-salary-row.deduction span,
+.generate-payroll-page .generate-salary-row.deduction strong {
+  color: #d94e60;
+}
+
+.generate-payroll-page .generate-salary-row.net {
+  margin-top: 8px;
+  padding: 15px;
+  border: 1px solid #bfeee4;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #e5fff6, #e6faff);
+}
+
+.generate-payroll-page .generate-salary-row.net span {
+  color: #34776f;
+  font-weight: 750;
+}
+
+.generate-payroll-page .generate-salary-row.net strong {
+  color: #078c78;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+/* Preview note */
+.generate-payroll-page .generate-preview-note {
+  margin: 14px 0 0;
+  color: #8293a4;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+/* Form action buttons */
+.generate-payroll-page .generate-payroll-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+.generate-payroll-page .generate-payroll-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 12px 20px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.generate-payroll-page .generate-payroll-actions .generate-submit-btn {
+  border: none;
+  background: linear-gradient(120deg, #087eb8, #10b9c4);
+  color: #fff;
+  box-shadow: 0 7px 16px rgba(8, 145, 184, 0.19);
+}
+
+.generate-payroll-page .generate-payroll-actions .generate-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(8, 145, 184, 0.27);
+}
+
+.generate-payroll-page .generate-payroll-actions .generate-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.generate-payroll-page .generate-payroll-actions .payroll-secondary-btn {
+  width: auto;
+  margin: 0;
+}
+
+/* Sidebar status */
+.generate-payroll-page .generate-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 18px;
+}
+
+.generate-payroll-page .generate-status-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 2px;
+  border-bottom: 1px solid #edf3f7;
+}
+
+.generate-payroll-page .generate-status-list > div:last-child {
+  border-bottom: none;
+}
+
+.generate-payroll-page .generate-status-list span {
+  color: #718399;
+  font-size: 12px;
+}
+
+.generate-payroll-page .generate-status-list strong {
+  color: #18344d;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.generate-payroll-page .generate-payroll-sidebar .full-width {
+  width: 100%;
+}
+
+.generate-payroll-page .generate-payroll-notes {
+  margin: 0;
+  padding-left: 19px;
+  color: #718399;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.generate-payroll-page .generate-payroll-notes li {
+  margin-bottom: 10px;
+}
+
+.generate-payroll-page .generate-payroll-notes li:last-child {
+  margin-bottom: 0;
+}
+
+/* Tablet */
+@media (max-width: 1100px) {
+  .generate-payroll-page .generate-payroll-form {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .generate-payroll-page .generate-payroll-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .generate-payroll-page .generate-payroll-sidebar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+/* Mobile */
+@media (max-width: 650px) {
+  .generate-payroll-page .generate-payroll-sidebar {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .generate-payroll-page .generate-payroll-form {
+    gap: 16px;
+  }
+
+  .generate-payroll-page .generate-payroll-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .generate-payroll-page .generate-payroll-actions button,
+  .generate-payroll-page .generate-payroll-actions .payroll-secondary-btn {
+    width: 100%;
+    min-height: 45px;
+  }
+
+  .generate-payroll-page .generate-salary-preview {
+    padding: 12px;
+  }
+
+  .generate-payroll-page .generate-salary-row {
+    gap: 9px;
+  }
+
+  .generate-payroll-page .generate-salary-row span {
+    font-size: 11px;
+  }
+
+  .generate-payroll-page .generate-salary-row strong {
+    font-size: 11px;
+  }
+}

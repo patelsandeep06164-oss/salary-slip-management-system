@@ -1,41 +1,49 @@
+
 const express = require("express");
 const router = express.Router();
 
 const employeeController = require("../controllers/employeeController");
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
+const { verifyCsrfToken } = require("../middleware/csrfMiddleware");
 
-// All employee routes require authentication
+// All employee routes require authentication.
 router.use(authMiddleware);
 
-// Get all employees (admin/HR only)
+// Get all employees (Admin only).
 router.get(
   "/",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
   employeeController.getEmployees
 );
 
-// Create employee (admin/HR only)
+// Create employee (Admin only).
 router.post(
   "/",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
+  verifyCsrfToken,
   employeeController.createEmployee
 );
 
-// Get employee by ID (admin/HR or the employee's own profile)
-router.get("/:id", employeeController.getEmployeeById);
+// Get employee by ID (Admin or own Employee profile).
+router.get(
+  "/:id",
+  employeeController.getEmployeeById
+);
 
-// Update employee (admin/HR only)
+// Update employee (Admin only).
 router.patch(
   "/:id",
-  roleMiddleware("admin", "hr"),
+  roleMiddleware("admin"),
+  verifyCsrfToken,
   employeeController.updateEmployee
 );
 
-// Deactivate employee (admin only)
+// Deactivate employee (Admin only).
 router.delete(
   "/:id",
   roleMiddleware("admin"),
+  verifyCsrfToken,
   employeeController.deactivateEmployee
 );
 

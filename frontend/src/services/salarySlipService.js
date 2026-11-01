@@ -48,18 +48,18 @@ const salarySlipService = {
     return response;
   },
 
-  // Generate and email salary slips for a month
-  async generateAndEmailMonthly(month, year) {
-    const response = await api.post(
-      "/salary-slips/generate-and-email-monthly",
-      {
-        month,
-        year,
-      }
-    );
+ // Generate and email salary slips for a month
+async generateAndEmailMonthly(month, year) {
+  const response = await api.post(
+    "/salary-slips/process-monthly",
+    {
+      month,
+      year,
+    }
+  );
 
-    return response.data;
-  },
+  return response.data;
+},
 };
 
 export default salarySlipService;

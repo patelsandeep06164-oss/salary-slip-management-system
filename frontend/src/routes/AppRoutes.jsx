@@ -1,8 +1,10 @@
+
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
-// Authentication
+// Authentication Pages
 import Login from "../pages/auth/Login";
+import Register from "../pages/auth/Register";
 import ForgotPassword from "../pages/auth/ForgotPassword";
 import ResetPassword from "../pages/auth/ResetPassword";
 
@@ -16,14 +18,14 @@ import NotFound from "../pages/NotFound";
 function AppRoutes() {
   return (
     <Routes>
-      {/* Default Page */}
       <Route
         path="/"
         element={<Navigate to="/login" replace />}
       />
 
-      {/* Authentication Pages */}
+      {/* Authentication */}
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
       <Route
         path="/forgot-password"
@@ -35,19 +37,18 @@ function AppRoutes() {
         element={<ResetPassword />}
       />
 
-      {/* Admin Pages */}
+      {/* Admin */}
       <Route
         path="/admin/*"
         element={<AdminRoutes />}
       />
 
-      {/* Employee Pages */}
+      {/* Employee */}
       <Route
         path="/employee/*"
         element={<EmployeeRoutes />}
       />
 
-      {/* Page Not Found */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
