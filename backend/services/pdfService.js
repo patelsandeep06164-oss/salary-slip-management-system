@@ -1,4 +1,3 @@
-
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -38,7 +37,7 @@ const generateSalarySlipPdf = async ({
   const companyObject = toPlainObject(company);
   const safeSalarySlip = toPlainObject(salarySlip);
 
-  // Safely convert company address.
+  // Convert nested CompanySettings address into readable text.
   const rawAddress = companyObject.address;
 
   const companyAddress =
@@ -60,46 +59,45 @@ const generateSalarySlipPdf = async ({
     ...companyObject,
     companyName: companyObject.companyName || "Your Company",
     address: companyAddress,
-    currency: companyObject.currency || "INR",
+    currency: companyObject.currency || safePayroll.currency || "INR",
   };
 
-  // Salary earnings.
+  // Read the original JPEG logo. No conversion or modification.
+  const logoPath = path.resolve(
+    __dirname,
+    "../assets/itteck-solution-logo.jpeg"
+  );
+
+  let logoDataUrl = "";
+
+  try {
+    const logoBase64 = await fs.promises.readFile(logoPath, "base64");
+    logoDataUrl = `data:image/jpeg;base64,${logoBase64}`;
+  } catch (error) {
+    throw new Error(
+      `Company logo could not be loaded from ${logoPath}: ${error.message}`
+    );
+  }
+
+  // Payroll earnings: use stored payroll values only.
   const basicSalary = toAmount(
-    safePayroll.basicSalary ?? safeEmployee.basicSalary,
+    safePayroll.basicSalary,
     "basicSalary"
   );
 
-  const hra = toAmount(
-    safePayroll.hra ?? safePayroll.houseRentAllowance,
-    "hra"
-  );
-
-  const allowances = toAmount(
-    safePayroll.allowances,
-    "allowances"
-  );
-
-  const bonus = toAmount(
-    safePayroll.bonus ?? safePayroll.bonuses,
-    "bonus"
-  );
-
-  const overtime = toAmount(
-    safePayroll.overtimePay ?? safePayroll.overtimeAmount,
-    "overtimePay"
-  );
+  const hra = toAmount(safePayroll.hra, "hra");
+  const allowances = toAmount(safePayroll.allowances, "allowances");
+  const bonus = toAmount(safePayroll.bonus, "bonus");
+  const overtime = toAmount(safePayroll.overtimePay, "overtimePay");
 
   const grossSalary = toAmount(
-    safePayroll.grossSalary ??
-      basicSalary + hra + allowances + bonus + overtime,
+    safePayroll.grossSalary,
     "grossSalary"
   );
 
-  // Salary deductions.
+  // Payroll deductions.
   const taxDeduction = toAmount(
-    safePayroll.taxDeduction ??
-      safePayroll.tax ??
-      safePayroll.incomeTax,
+    safePayroll.taxDeduction,
     "taxDeduction"
   );
 
@@ -109,31 +107,25 @@ const generateSalarySlipPdf = async ({
   );
 
   const otherDeductions = toAmount(
-    safePayroll.deductions ?? safePayroll.otherDeductions,
+    safePayroll.deductions,
     "deductions"
   );
 
-  const calculatedDeductions =
-    taxDeduction +
-    unpaidLeaveDeduction +
-    otherDeductions;
-
   const totalDeductions = toAmount(
-    safePayroll.totalDeductions ?? calculatedDeductions,
+    safePayroll.totalDeductions,
     "totalDeductions"
   );
 
   const netSalary = toAmount(
-    safeSalarySlip.netSalary ??
-      safePayroll.netSalary ??
-      grossSalary - totalDeductions,
+    safePayroll.netSalary,
     "netSalary"
   );
 
   // Prevent invalid PDF filenames and filename collisions.
-  const safeSlipNumber = String(slipNumber)
-    .replace(/[^a-zA-Z0-9_-]/g, "_")
-    .slice(0, 100) || "SALARY-SLIP";
+  const safeSlipNumber =
+    String(slipNumber)
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .slice(0, 100) || "SALARY-SLIP";
 
   const uniqueFileName =
     `${safeSlipNumber}-${crypto.randomUUID()}.pdf`;
@@ -158,10 +150,10 @@ const generateSalarySlipPdf = async ({
     issueDate:
       safeSalarySlip.issueDate ||
       safeSalarySlip.generatedAt ||
+      safeSalarySlip.createdAt ||
       new Date(),
   };
 
-  // Pass fields matching the Salary Slip template.
   const templatePayroll = {
     ...safePayroll,
     basicSalary,
@@ -169,12 +161,10 @@ const generateSalarySlipPdf = async ({
     allowances,
     bonus,
     overtimePay: overtime,
-    overtimeAmount: overtime,
     grossSalary,
     taxDeduction,
     unpaidLeaveDeduction,
     deductions: otherDeductions,
-    otherDeductions,
     totalDeductions,
     netSalary,
   };
@@ -184,6 +174,7 @@ const generateSalarySlipPdf = async ({
     employee: safeEmployee,
     payroll: templatePayroll,
     salarySlip: templateSalarySlip,
+    logoDataUrl,
   });
 
   let browser;
@@ -202,13 +193,14 @@ const generateSalarySlipPdf = async ({
     await page.pdf({
       path: pdfPath,
       format: "A4",
+      landscape: true,
       printBackground: true,
       preferCSSPageSize: true,
       margin: {
-        top: "12mm",
-        right: "12mm",
-        bottom: "12mm",
-        left: "12mm",
+        top: "7mm",
+        right: "8mm",
+        bottom: "7mm",
+        left: "8mm",
       },
     });
 
@@ -220,14 +212,14 @@ const generateSalarySlipPdf = async ({
 
     return { pdfPath };
   } catch (error) {
-    // Delete only this newly created PDF.
-    // Never delete an older salary slip.
+    // Delete only the newly generated PDF.
+    // Existing salary slips and payroll records remain untouched.
     try {
       await fs.promises.unlink(pdfPath);
     } catch (cleanupError) {
       if (cleanupError.code !== "ENOENT") {
         console.error(
-          "[PDF Service] Temporary PDF cleanup failed:",
+          "[PDF Service] PDF cleanup failed:",
           cleanupError.message
         );
       }

@@ -1,4 +1,4 @@
-const crypto = require("crypto");
+﻿const crypto = require("crypto");
 const AuthOtp = require("../models/AuthOtp");
 const OtpRateLimit = require("../models/OtpRateLimit");
 
@@ -13,6 +13,7 @@ const ALLOWED_PURPOSES = [
   "employee-registration",
   "admin-registration",
   "admin-login",
+  "employee-login",
   "password-reset",
 ];
 

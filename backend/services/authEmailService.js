@@ -14,39 +14,45 @@ const resend = resendApiKey
   ? new Resend(resendApiKey)
   : null;
 
-// Testing sender. Production mein verified company domain use karein.
 const emailFrom =
   process.env.RESEND_FROM_EMAIL?.trim() ||
   "onboarding@resend.dev";
 
-// Existing email purposes preserved.
+// OTP email templates
 const emailTemplates = {
   "employee-registration": {
-    subject: "Your SalaryFlow Verification Code",
-    heading: "Email Verification",
+    subject: "ITteck Solution - Employee Email Verification",
+    heading: "Employee Email Verification",
     description:
-      "Use the verification code below to verify your email address.",
+      "Use the verification code below to verify your employee email address.",
   },
 
   "admin-registration": {
-    subject: "Your SalaryFlow Verification Code",
-    heading: "Email Verification",
+    subject: "ITteck Solution - Admin Email Verification",
+    heading: "Admin Email Verification",
     description:
-      "Use the verification code below to verify your email address.",
+      "Use the verification code below to verify your administrator email address.",
+  },
+
+  "employee-login": {
+    subject: "ITteck Solution - Employee Login Verification",
+    heading: "Employee Login Verification",
+    description:
+      "Use this verification code to securely sign in to your employee account.",
   },
 
   "admin-login": {
-    subject: "Your SalaryFlow Verification Code",
-    heading: "Email Verification",
+    subject: "ITteck Solution - Admin Login Verification",
+    heading: "Admin Login Verification",
     description:
-      "Use the verification code below to verify your email address.",
+      "Use this verification code to securely sign in to your administrator account.",
   },
 
   "password-reset": {
-    subject: "Your SalaryFlow Verification Code",
-    heading: "Email Verification",
+    subject: "ITteck Solution - Password Reset Verification",
+    heading: "Password Reset Verification",
     description:
-      "Use the verification code below to verify your email address.",
+      "Use this verification code to verify your identity and reset your password.",
   },
 };
 
@@ -121,7 +127,7 @@ const sendAuthOtpEmail = async ({
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const safeOtp = String(otp);
+  const safeOtp = escapeHtml(otp);
 
   const html = `
     <!DOCTYPE html>
@@ -129,7 +135,7 @@ const sendAuthOtpEmail = async ({
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>${template.heading}</title>
+      <title>${escapeHtml(template.heading)}</title>
     </head>
 
     <body style="
@@ -151,14 +157,14 @@ const sendAuthOtpEmail = async ({
           color: #087f9e;
           text-align: center;
         ">
-          SalaryFlow
+          ITteck Solution
         </h2>
 
         <h3 style="
           color: #203c55;
           text-align: center;
         ">
-          ${template.heading}
+          ${escapeHtml(template.heading)}
         </h3>
 
         <p style="
@@ -166,7 +172,7 @@ const sendAuthOtpEmail = async ({
           font-size: 15px;
           line-height: 1.7;
         ">
-          ${template.description}
+          ${escapeHtml(template.description)}
         </p>
 
         <div style="
@@ -190,7 +196,7 @@ const sendAuthOtpEmail = async ({
             font-size: 32px;
             letter-spacing: 9px;
           ">
-            ${escapeHtml(safeOtp)}
+            ${safeOtp}
           </strong>
         </div>
 
@@ -223,7 +229,7 @@ const sendAuthOtpEmail = async ({
           font-size: 11px;
           text-align: center;
         ">
-          This is an automated security email.
+          This is an automated security email from ITteck Solution.
           Please do not reply.
         </p>
       </div>
@@ -232,6 +238,7 @@ const sendAuthOtpEmail = async ({
   `;
 
   const text = `
+ITteck Solution
 ${template.heading}
 
 ${template.description}

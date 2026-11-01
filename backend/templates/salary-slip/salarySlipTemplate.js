@@ -1,4 +1,3 @@
-
 const formatCurrency = require("../../utils/formatCurrency");
 const formatDate = require("../../utils/formatDate");
 
@@ -20,12 +19,120 @@ const safeCurrency = (value, currency) => {
   return formatCurrency(amount, currency);
 };
 
+// Indian number system: Rupees in words.
+const numberToWords = (number) => {
+  const value = Math.floor(Math.abs(Number(number)));
+
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  if (value === 0) {
+    return "Zero";
+  }
+
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
+
+  const tens = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
+  ];
+
+  const twoDigits = (num) => {
+    if (num < 20) return ones[num];
+
+    return `${tens[Math.floor(num / 10)]}${
+      num % 10 ? ` ${ones[num % 10]}` : ""
+    }`;
+  };
+
+  const threeDigits = (num) => {
+    const hundred = Math.floor(num / 100);
+    const remainder = num % 100;
+
+    return [
+      hundred ? `${ones[hundred]} Hundred` : "",
+      remainder ? twoDigits(remainder) : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  let remaining = value;
+  const parts = [];
+
+  const crore = Math.floor(remaining / 10000000);
+  remaining %= 10000000;
+
+  const lakh = Math.floor(remaining / 100000);
+  remaining %= 100000;
+
+  const thousand = Math.floor(remaining / 1000);
+  remaining %= 1000;
+
+  if (crore) parts.push(`${threeDigits(crore)} Crore`);
+  if (lakh) parts.push(`${threeDigits(lakh)} Lakh`);
+  if (thousand) parts.push(`${threeDigits(thousand)} Thousand`);
+  if (remaining) parts.push(threeDigits(remaining));
+
+  return parts.join(" ");
+};
+
+const amountInWords = (amount, currency) => {
+  const absoluteAmount = Math.abs(Number(amount));
+  const whole = Math.floor(absoluteAmount);
+  const paise = Math.round((absoluteAmount - whole) * 100);
+
+  const currencyName =
+    currency === "INR" ? "Rupees" : currency;
+
+  let result = `${numberToWords(whole)} ${currencyName}`;
+
+  if (paise > 0) {
+    result += ` and ${numberToWords(paise)} Paise`;
+  }
+
+  result += " Only";
+
+  return Number(amount) < 0 ? `Minus ${result}` : result;
+};
+
 const salarySlipTemplate = (data = {}) => {
   const {
     company: companyData,
     employee: employeeData,
     payroll: payrollData,
     salarySlip: salarySlipData,
+    logoDataUrl = "",
   } = data || {};
 
   const company = companyData || {};
@@ -33,33 +140,51 @@ const salarySlipTemplate = (data = {}) => {
   const payroll = payrollData || {};
   const salarySlip = salarySlipData || {};
 
-  const currency = company.currency || "INR";
+  const currency = company.currency || payroll.currency || "INR";
 
-  const companyName = escapeHtml(company.companyName || "Your Company");
+  const companyName = escapeHtml(
+    company.companyName || "Your Company"
+  );
+
   const companyAddress = escapeHtml(company.address || "");
   const companyEmail = escapeHtml(company.email || "");
   const companyPhone = escapeHtml(company.phone || "");
+  const companyWebsite = escapeHtml(company.website || "");
+
+  const validLogo =
+    typeof logoDataUrl === "string" &&
+    /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(logoDataUrl)
+      ? logoDataUrl
+      : "";
 
   const fullName =
-    employee.name ||
     employee.fullName ||
-    [employee.firstName, employee.lastName].filter(Boolean).join(" ") ||
+    employee.name ||
+    [employee.firstName, employee.lastName]
+      .filter(Boolean)
+      .join(" ") ||
     "Employee";
 
   const employeeName = escapeHtml(fullName);
+
   const employeeId = escapeHtml(
-    employee.employeeCode || employee.employeeId || employee._id || "N/A"
+    employee.employeeCode || employee.employeeId || "N/A"
   );
 
-  const department = escapeHtml(
-    employee.departmentName || employee.department?.name || "N/A"
-  );
+  const departmentValue =
+    employee.departmentName ||
+    employee.department?.name ||
+    "";
+
+  const department = escapeHtml(departmentValue || "N/A");
 
   const designation = escapeHtml(
     employee.designation || employee.position || "N/A"
   );
 
   const employeeEmail = escapeHtml(employee.email || "N/A");
+  const employeePhone = escapeHtml(employee.phone || "N/A");
+  const employeePan = escapeHtml(employee.pan || "");
 
   const month = salarySlip.month ?? payroll.month;
   const year = salarySlip.year ?? payroll.year;
@@ -76,54 +201,57 @@ const salarySlipTemplate = (data = {}) => {
       : "Not specified";
 
   const issueDate =
-    salarySlip.issueDate || salarySlip.createdAt || new Date();
+    salarySlip.issueDate ||
+    salarySlip.generatedAt ||
+    salarySlip.createdAt ||
+    new Date();
 
-  const formattedIssueDate = formatDate(issueDate);
+  const formattedIssueDate = escapeHtml(formatDate(issueDate));
 
-  const basicSalary = Number(
-    payroll.basicSalary ?? employee.basicSalary ?? 0
-  );
-
-  const hra = Number(
-    payroll.hra ?? payroll.houseRentAllowance ?? 0
-  );
-
+  // Use stored payroll amounts. No payroll calculation is performed here.
+  const basicSalary = Number(payroll.basicSalary ?? 0);
+  const hra = Number(payroll.hra ?? 0);
   const allowances = Number(payroll.allowances ?? 0);
-  const bonus = Number(payroll.bonus ?? payroll.bonuses ?? 0);
+  const bonus = Number(payroll.bonus ?? 0);
+  const overtime = Number(payroll.overtimePay ?? 0);
 
-  const overtime = Number(
-    payroll.overtimePay ?? payroll.overtimeAmount ?? 0
-  );
+  const grossSalary = Number(payroll.grossSalary ?? 0);
 
-  const grossSalary = Number(
-    payroll.grossSalary ??
-      basicSalary + hra + allowances + bonus + overtime
-  );
-
-  const tax = Number(
-    payroll.taxDeduction ?? payroll.tax ?? payroll.incomeTax ?? 0
-  );
-
+  const tax = Number(payroll.taxDeduction ?? 0);
   const unpaidLeaveDeduction = Number(
     payroll.unpaidLeaveDeduction ?? 0
   );
-
-  const otherDeductions = Number(
-    payroll.deductions ?? payroll.otherDeductions ?? 0
-  );
+  const otherDeductions = Number(payroll.deductions ?? 0);
 
   const totalDeductions = Number(
-    payroll.totalDeductions ??
-      tax + unpaidLeaveDeduction + otherDeductions
+    payroll.totalDeductions ?? 0
   );
 
   const netSalary = Number(
-    salarySlip.netSalary ??
-      payroll.netSalary ??
-      grossSalary - totalDeductions
+    salarySlip.netSalary ?? payroll.netSalary ?? 0
   );
 
-  const amountRows = [
+  const amounts = [
+    basicSalary,
+    hra,
+    allowances,
+    bonus,
+    overtime,
+    grossSalary,
+    tax,
+    unpaidLeaveDeduction,
+    otherDeductions,
+    totalDeductions,
+    netSalary,
+  ];
+
+  if (!amounts.every(Number.isFinite)) {
+    throw new TypeError(
+      "Salary slip contains an invalid salary amount."
+    );
+  }
+
+  const earningsRows = [
     ["Basic Salary", basicSalary],
     ["House Rent Allowance", hra],
     ["Other Allowances", allowances],
@@ -137,18 +265,6 @@ const salarySlipTemplate = (data = {}) => {
     ["Other Deductions", otherDeductions],
   ];
 
-  const amounts = [
-    ...amountRows.map((row) => row[1]),
-    ...deductionRows.map((row) => row[1]),
-    grossSalary,
-    totalDeductions,
-    netSalary,
-  ];
-
-  if (!amounts.every(Number.isFinite)) {
-    throw new TypeError("Salary slip contains an invalid salary amount.");
-  }
-
   const renderRows = (rows) =>
     rows
       .map(
@@ -161,6 +277,61 @@ const salarySlipTemplate = (data = {}) => {
       )
       .join("");
 
+  const attendanceItems = [
+    ["Working Days", payroll.workingDays],
+    ["Days Present", payroll.daysPresent],
+    ["Days Absent", payroll.daysAbsent],
+    ["Unpaid Leave Days", payroll.unpaidLeaveDays],
+  ].filter(([, value]) => value !== undefined && value !== null);
+
+  const renderDetails = (items) =>
+    items
+      .map(
+        ([label, value]) => `
+          <div class="detail-item">
+            <div class="detail-label">${escapeHtml(label)}</div>
+            <div class="detail-value">${escapeHtml(value || "N/A")}</div>
+          </div>
+        `
+      )
+      .join("");
+
+  const payrollStatus = escapeHtml(payroll.status || "N/A");
+  const paymentReference = escapeHtml(
+    payroll.paymentReference || ""
+  );
+
+  const paidDate = payroll.paidAt
+    ? escapeHtml(formatDate(payroll.paidAt))
+    : "";
+
+  const attendanceHtml = attendanceItems.length
+    ? `
+      <section class="section">
+        <h3 class="section-title">Attendance Details</h3>
+        <div class="details attendance-grid">
+          ${renderDetails(attendanceItems)}
+        </div>
+      </section>
+    `
+    : "";
+
+  const payrollExtraItems = [
+    ["Payroll Status", payrollStatus],
+    ...(paymentReference
+      ? [["Payment Reference", paymentReference]]
+      : []),
+    ...(paidDate ? [["Payment Date", paidDate]] : []),
+  ];
+
+  const payrollExtraHtml = payrollExtraItems.length
+    ? `
+      <div class="payroll-extra">
+        ${renderDetails(payrollExtraItems)}
+      </div>
+    `
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -169,137 +340,278 @@ const salarySlipTemplate = (data = {}) => {
   <title>Salary Slip - ${employeeName}</title>
 
   <style>
-    * { box-sizing: border-box; }
+    @page {
+      size: A4 landscape;
+      margin: 7mm;
+    }
 
-    body {
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
       margin: 0;
-      padding: 24px;
+      padding: 0;
       font-family: Arial, Helvetica, sans-serif;
-      color: #243247;
-      background: #eef4f8;
-      font-size: 12px;
+      color: #253247;
+      background: #ffffff;
+      font-size: 10px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     .salary-slip {
-      max-width: 850px;
-      margin: 0 auto;
-      background: #fff;
-      border: 1px solid #dce5ec;
+      width: 100%;
+      background: #ffffff;
+      border: 1px solid #d6e0eb;
+      overflow: hidden;
     }
 
-    .header {
-      padding: 28px 30px;
-      color: #fff;
-      background: #087f8c;
+    .company-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+      padding: 14px 20px;
+      border-bottom: 2px solid #1d4e89;
     }
 
-    .header h1 { margin: 0 0 8px; font-size: 25px; }
-    .header p { margin: 4px 0; line-height: 1.6; }
-
-    .title {
-      padding: 22px 30px;
-      border-bottom: 1px solid #dce5ec;
+    .logo-area {
+      width: 42%;
+      display: flex;
+      align-items: center;
+      min-height: 65px;
     }
 
-    .title h2 { margin: 0 0 8px; font-size: 20px; }
-    .title p { margin: 0; color: #64748b; }
+    .company-logo {
+      display: block;
+      max-width: 210px;
+      max-height: 68px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
 
-    .content { padding: 24px 30px 30px; }
+    .company-details {
+      width: 58%;
+      text-align: right;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+
+    .company-details h1 {
+      margin: 0 0 4px;
+      color: #173d70;
+      font-size: 19px;
+      font-weight: 700;
+    }
+
+    .company-details p {
+      margin: 1px 0;
+      color: #53647a;
+      font-size: 9px;
+    }
+
+    .payslip-title {
+      padding: 9px 15px;
+      text-align: center;
+      color: #ffffff;
+      background: #1d4e89;
+    }
+
+    .payslip-title h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 1.2px;
+    }
+
+    .period {
+      margin-top: 4px;
+      font-size: 10px;
+    }
+
+    .content {
+      padding: 12px 17px 14px;
+    }
+
+    .section {
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+    }
 
     .section-title {
-      margin: 22px 0 10px;
-      font-size: 13px;
-      color: #087f8c;
+      margin: 0 0 7px;
+      padding: 5px 8px;
+      color: #173d70;
+      background: #eaf1f9;
+      border-left: 3px solid #1d4e89;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: .5px;
     }
 
     .details {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      padding: 16px;
-      background: #f6fafc;
-      border: 1px solid #e1eaf0;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px 14px;
+      padding: 9px 10px;
+      border: 1px solid #dce5ef;
+      background: #fbfdff;
     }
 
     .detail-label {
-      color: #64748b;
-      font-size: 10px;
-      margin-bottom: 5px;
+      margin-bottom: 3px;
+      color: #66758a;
+      font-size: 8px;
     }
 
     .detail-value {
-      font-weight: bold;
+      color: #253247;
+      font-size: 9px;
+      font-weight: 700;
       overflow-wrap: anywhere;
     }
 
-    table { width: 100%; border-collapse: collapse; }
+    .payroll-extra {
+      margin-top: 7px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .payroll-extra .detail-item {
+      padding: 6px 8px;
+      border: 1px solid #dce5ef;
+      background: #fbfdff;
+    }
+
+    .attendance-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .salary-tables {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      page-break-inside: avoid;
+    }
+
+    .table-heading {
+      margin: 0;
+      padding: 7px 9px;
+      color: #ffffff;
+      background: #1d4e89;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
 
     th, td {
-      padding: 11px 12px;
-      border: 1px solid #e1eaf0;
+      padding: 6px 8px;
+      border: 1px solid #dce5ef;
+      font-size: 9px;
       text-align: left;
     }
 
-    th { background: #f1f6f8; font-size: 11px; }
+    th {
+      color: #34445a;
+      background: #f1f5fa;
+      font-size: 8px;
+      text-transform: uppercase;
+    }
 
-    .amount { text-align: right; white-space: nowrap; }
+    .amount {
+      text-align: right;
+      white-space: nowrap;
+    }
 
     .total td {
-      font-weight: bold;
-      background: #f1fbfc;
+      font-weight: 700;
+      color: #173d70;
+      background: #eaf1f9;
     }
 
-    .net {
-      margin-top: 22px;
-      padding: 18px;
-      background: #e8f8f8;
-      border: 1px solid #b9e5e7;
+    .net-pay {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      align-items: center;
+      gap: 15px;
+      margin-top: 10px;
+      padding: 10px 13px;
+      color: #ffffff;
+      background: #173d70;
+      page-break-inside: avoid;
     }
 
-    .net-label { font-size: 13px; font-weight: bold; }
+    .net-label {
+      font-size: 12px;
+      font-weight: 700;
+    }
 
     .net-value {
-      color: #087f8c;
-      font-size: 23px;
-      font-weight: bold;
+      font-size: 18px;
+      font-weight: 700;
       text-align: right;
     }
 
-    .words { margin-top: 14px; color: #536477; line-height: 1.7; }
+    .amount-words {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px solid #dce5ef;
+      background: #fbfdff;
+      line-height: 1.5;
+    }
+
+    .amount-words strong {
+      color: #173d70;
+    }
 
     .footer {
-      padding: 18px 30px;
-      border-top: 1px solid #dce5ec;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 20px;
+      margin-top: 12px;
+      padding: 10px 5px 2px;
+      border-top: 1px solid #dce5ef;
       color: #64748b;
-      font-size: 10px;
-      line-height: 1.7;
+      font-size: 8px;
+      page-break-inside: avoid;
+    }
+
+    .notes {
+      max-width: 65%;
+      line-height: 1.6;
+    }
+
+    .signature {
+      min-width: 160px;
       text-align: center;
+      color: #34445a;
+    }
+
+    .signature-line {
+      height: 25px;
+      margin-bottom: 5px;
+      border-bottom: 1px solid #64748b;
+    }
+
+    .signature-label {
+      font-weight: 700;
     }
 
     @media print {
-      body { padding: 0; background: #fff; }
-      .salary-slip { max-width: none; border: none; }
-    }
-
-    @media (max-width: 520px) {
-      body { padding: 8px; }
-
-      .header, .title, .content, .footer {
-        padding-left: 16px;
-        padding-right: 16px;
+      html, body {
+        background: #ffffff;
       }
 
-      .details { grid-template-columns: 1fr; }
-
-      th, td { padding: 8px 6px; font-size: 10px; }
-
-      .net-value { font-size: 18px; }
+      .salary-slip {
+        border: 1px solid #d6e0eb;
+      }
     }
   </style>
 </head>
@@ -307,111 +619,139 @@ const salarySlipTemplate = (data = {}) => {
 <body>
   <main class="salary-slip">
 
-    <header class="header">
-      <h1>${companyName}</h1>
-      ${companyAddress ? `<p>${companyAddress}</p>` : ""}
-      ${companyEmail ? `<p>${companyEmail}</p>` : ""}
-      ${companyPhone ? `<p>${companyPhone}</p>` : ""}
+    <header class="company-header">
+      <div class="logo-area">
+        ${
+          validLogo
+            ? `<img class="company-logo" src="${validLogo}" alt="ITteck Solution Logo" />`
+            : ""
+        }
+      </div>
+
+      <div class="company-details">
+        <h1>${companyName}</h1>
+        ${companyAddress ? `<p>${companyAddress}</p>` : ""}
+        ${companyEmail ? `<p>${companyEmail}</p>` : ""}
+        ${companyPhone ? `<p>${companyPhone}</p>` : ""}
+        ${companyWebsite ? `<p>${companyWebsite}</p>` : ""}
+      </div>
     </header>
 
-    <section class="title">
-      <h2>Salary Slip</h2>
-      <p>Salary Period: <strong>${escapeHtml(salaryPeriod)}</strong></p>
+    <section class="payslip-title">
+      <h2>PAYSLIP FOR THE MONTH</h2>
+      <div class="period">${escapeHtml(salaryPeriod)}</div>
     </section>
 
-    <section class="content">
+    <div class="content">
 
-      <h3 class="section-title">Employee Information</h3>
+      <section class="section">
+        <h3 class="section-title">Employee Details</h3>
 
-      <div class="details">
-        <div>
-          <div class="detail-label">Employee Name</div>
-          <div class="detail-value">${employeeName}</div>
+        <div class="details">
+          ${renderDetails([
+            ["Employee Name", employeeName],
+            ["Employee Code", employeeId],
+            ["Department", department],
+            ["Designation", designation],
+            ["Email", employeeEmail],
+            ["Phone", employeePhone],
+            ...(employeePan ? [["PAN", employeePan]] : []),
+            ["Issue Date", formattedIssueDate],
+          ])}
+        </div>
+      </section>
+
+      <section class="section">
+        <h3 class="section-title">Payroll Details</h3>
+
+        <div class="details">
+          ${renderDetails([
+            ["Salary Month", salaryPeriod],
+            ["Currency", currency],
+            ["Slip Number", salarySlip.slipNumber || "N/A"],
+          ])}
         </div>
 
-        <div>
-          <div class="detail-label">Employee ID</div>
-          <div class="detail-value">${employeeId}</div>
+        ${payrollExtraHtml}
+      </section>
+
+      ${attendanceHtml}
+
+      <section class="section">
+        <div class="salary-tables">
+
+          <div>
+            <h3 class="table-heading">Earnings</h3>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th class="amount">Amount</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${renderRows(earningsRows)}
+
+                <tr class="total">
+                  <td>Gross Salary</td>
+                  <td class="amount">${safeCurrency(grossSalary, currency)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div>
+            <h3 class="table-heading">Deductions</h3>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th class="amount">Amount</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${renderRows(deductionRows)}
+
+                <tr class="total">
+                  <td>Total Deductions</td>
+                  <td class="amount">${safeCurrency(totalDeductions, currency)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
         </div>
+      </section>
 
-        <div>
-          <div class="detail-label">Department</div>
-          <div class="detail-value">${department}</div>
-        </div>
-
-        <div>
-          <div class="detail-label">Designation</div>
-          <div class="detail-value">${designation}</div>
-        </div>
-
-        <div>
-          <div class="detail-label">Email</div>
-          <div class="detail-value">${employeeEmail}</div>
-        </div>
-
-        <div>
-          <div class="detail-label">Issue Date</div>
-          <div class="detail-value">${escapeHtml(formattedIssueDate)}</div>
-        </div>
-      </div>
-
-      <h3 class="section-title">Earnings</h3>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th class="amount">Amount</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          ${renderRows(amountRows)}
-
-          <tr class="total">
-            <td>Gross Salary</td>
-            <td class="amount">${safeCurrency(grossSalary, currency)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h3 class="section-title">Deductions</h3>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th class="amount">Amount</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          ${renderRows(deductionRows)}
-
-          <tr class="total">
-            <td>Total Deductions</td>
-            <td class="amount">${safeCurrency(totalDeductions, currency)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="net">
-        <div class="net-label">Net Salary Payable</div>
+      <section class="net-pay">
+        <div class="net-label">NET PAY</div>
         <div class="net-value">${safeCurrency(netSalary, currency)}</div>
+      </section>
+
+      <div class="amount-words">
+        <strong>Amount in Words:</strong>
+        ${escapeHtml(amountInWords(netSalary, currency))}
       </div>
 
-      <p class="words">
-        This salary slip is generated electronically.
-        Please contact your Admin if you notice any discrepancy.
-      </p>
+      <footer class="footer">
+        <div class="notes">
+          <strong>Notes:</strong><br />
+          This is a computer-generated salary slip. Please contact the
+          Admin if you notice any discrepancy.
+        </div>
 
-    </section>
+        <div class="signature">
+          <div class="signature-line"></div>
+          <div class="signature-label">Authorized Signatory</div>
+          <div>${companyName}</div>
+        </div>
+      </footer>
 
-    <footer class="footer">
-      This is a computer-generated salary slip and does not require a physical signature.<br />
-      &copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.
-    </footer>
-
+    </div>
   </main>
 </body>
 </html>`;

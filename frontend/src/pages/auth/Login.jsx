@@ -80,24 +80,18 @@ function Login() {
     }
   };
 
-  // Handle login and Admin OTP verification
+  // Admin OTP and Employee direct login
   const handleSubmit = async (event) => {
     event.preventDefault();
+
     setError("");
     setLoading(true);
 
     try {
-      // STEP 1: ADMIN OTP VERIFICATION
+      // ADMIN: VERIFY EMAIL OTP
       if (otpStep) {
-        if (selectedRole !== "admin") {
-          throw new Error(
-            "Admin verification is required only for Admin accounts."
-          );
-        }
-
         if (!/^\d{6}$/.test(otp)) {
-          setError("Please enter a valid 6-digit OTP.");
-          return;
+          throw new Error("Please enter a valid 6-digit OTP.");
         }
 
         const response = await authService.verifyAdminLoginOtp({
@@ -109,16 +103,14 @@ function Login() {
 
         if (!user) {
           throw new Error(
-            "Admin verification response does not contain user information."
+            "OTP verification response does not contain user information."
           );
         }
 
-        const role = String(user.role || "")
-          .trim()
-          .toLowerCase();
-
-        if (role !== "admin") {
-          throw new Error("Admin authentication failed.");
+        if (
+          String(user.role || "").trim().toLowerCase() !== "admin"
+        ) {
+          throw new Error("Invalid Admin account.");
         }
 
         login(user);
@@ -126,31 +118,33 @@ function Login() {
         return;
       }
 
-      // STEP 2: INITIAL LOGIN VALIDATION
+      // VALIDATE LOGIN DETAILS
       const email = formData.email.trim().toLowerCase();
       const password = formData.password;
 
       if (!email || !password) {
-        setError("Please enter your email address and password.");
-        return;
+        throw new Error(
+          "Please enter your email address and password."
+        );
       }
 
       if (!isValidEmail(email)) {
-        setError("Please enter a valid email address.");
-        return;
+        throw new Error("Please enter a valid email address.");
       }
 
-      // STEP 3: SEND LOGIN REQUEST
+      // SEND LOGIN REQUEST
       const response = await authService.login({
         email,
         password,
         role: selectedRole,
       });
 
-      // STEP 4: ADMIN OTP REQUIRED
-      if (response?.otpRequired === true) {
-        if (selectedRole !== "admin") {
-          throw new Error("Unexpected Admin OTP response.");
+      // ADMIN: PASSWORD + EMAIL OTP
+      if (selectedRole === "admin") {
+        if (response?.otpRequired !== true) {
+          throw new Error(
+            "Admin email OTP verification is required."
+          );
         }
 
         setPendingEmail(email);
@@ -160,31 +154,28 @@ function Login() {
         return;
       }
 
-      // STEP 5: EMPLOYEE LOGIN
-      const user = response?.user || response?.data?.user;
+      // EMPLOYEE: PASSWORD ONLY
+      if (selectedRole === "employee") {
+        const user = response?.user || response?.data?.user;
 
-      if (!user) {
-        throw new Error(
-          "Login response does not contain user information."
-        );
+        if (!user) {
+          throw new Error(
+            "Employee login response does not contain user information."
+          );
+        }
+
+        if (
+          String(user.role || "").trim().toLowerCase() !== "employee"
+        ) {
+          throw new Error("Invalid Employee account.");
+        }
+
+        login(user);
+        redirectUser(user);
+        return;
       }
 
-      const role = String(user.role || "")
-        .trim()
-        .toLowerCase();
-
-      if (selectedRole === "admin") {
-        throw new Error("Admin email OTP verification is required.");
-      }
-
-      if (role !== selectedRole) {
-        throw new Error(
-          "Your account does not match the selected account type."
-        );
-      }
-
-      login(user);
-      redirectUser(user);
+      throw new Error("Invalid account type.");
     } catch (requestError) {
       setError(
         getApiError(
@@ -197,7 +188,7 @@ function Login() {
     }
   };
 
-  // Return from OTP screen to password screen
+  // Return from Admin OTP screen to login
   const handleBackToLogin = () => {
     setOtpStep(false);
     setOtp("");
@@ -438,7 +429,8 @@ function Login() {
             </span>
           </div>
         </section>
-                {/* RIGHT LOGIN PANEL */}
+
+        {/* RIGHT LOGIN PANEL */}
         <section className="auth-form-panel login-form-panel">
           <div className="auth-mobile-brand">
             <span className="auth-brand-icon">
@@ -458,7 +450,9 @@ function Login() {
 
           <div className="auth-form-heading">
             <span className="auth-form-label">
-              {otpStep ? "ADMIN SECURITY VERIFICATION" : "WELCOME BACK!"}
+              {otpStep
+                ? "ADMIN SECURITY VERIFICATION"
+                : "WELCOME BACK!"}
             </span>
 
             <h2>
@@ -592,7 +586,7 @@ function Login() {
               </div>
             ) : (
               <div className="auth-field">
-                <label htmlFor="admin-login-otp">
+                <label htmlFor="login-otp">
                   Admin Email OTP
                 </label>
 
@@ -600,7 +594,7 @@ function Login() {
                   <FaFingerprint className="auth-input-icon" />
 
                   <input
-                    id="admin-login-otp"
+                    id="login-otp"
                     type="text"
                     inputMode="numeric"
                     name="otp"
@@ -690,7 +684,8 @@ function Login() {
               </Link>
             </div>
           )}
-                    <div className="auth-security-note">
+
+          <div className="auth-security-note">
             <span className="security-note-icon">
               <FaFingerprint />
             </span>

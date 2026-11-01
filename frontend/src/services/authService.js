@@ -81,6 +81,25 @@ const authService = {
   },
 
   // ==========================================
+  // EMPLOYEE LOGIN OTP
+  // ==========================================
+  async verifyEmployeeLoginOtp(payload) {
+    const response = await api.post(
+      "/auth/employee-login/verify-otp",
+      payload
+    );
+
+    const data = response.data || {};
+    const user = data.user || data.data?.user;
+
+    if (user) {
+      currentUser = user;
+    }
+
+    return data;
+  },
+
+  // ==========================================
   // CURRENT USER
   // ==========================================
   async getCurrentUser() {

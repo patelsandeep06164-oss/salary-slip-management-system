@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   FaArrowLeft,
-  FaFileInvoiceDollar,
   FaUser,
   FaBuilding,
   FaCalendarAlt,
@@ -291,9 +290,11 @@ function SalarySlipDetails() {
       <section className="ssd-slip">
         <div className="ssd-slip-top">
           <div className="ssd-brand">
-            <div className="ssd-brand-icon">
-              <FaFileInvoiceDollar />
-            </div>
+            <img
+  src="/assets/itteck-solution-logo.jpeg"
+  alt="ITteck Solution Logo"
+  className="ssd-brand-logo"
+/>
             <div>
               <h2>Salary Statement</h2>
               <p>Employee Payroll Record</p>

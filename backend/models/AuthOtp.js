@@ -15,11 +15,11 @@ const authOtpSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: [
-        "employee-registration",
-        "admin-registration",
-        "admin-login",
-        "password-reset",
-      ],
+  "employee-registration",
+  "admin-registration",
+  "admin-login",
+  "password-reset",
+],
     },
 
     otpHash: {
@@ -84,20 +84,17 @@ const authOtpSchema = new mongoose.Schema(
   }
 );
 
-// Automatically delete expired OTP records.
 authOtpSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0 }
 );
 
-// Efficient lookup by email and purpose.
 authOtpSchema.index({
   email: 1,
   purpose: 1,
   createdAt: -1,
 });
 
-// Allow only one unconsumed OTP per email and purpose.
 authOtpSchema.index(
   { email: 1, purpose: 1 },
   {

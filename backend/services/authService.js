@@ -1,3 +1,4 @@
+
 const bcrypt = require("bcryptjs");
 
 const User = require("../models/User");
@@ -240,7 +241,6 @@ const register = async ({
       ? "admin-registration"
       : "employee-registration";
 
-  // Check existing account before consuming proof.
   const existingUser = await User.findOne({
     email: normalizedEmail,
   }).select("_id");
@@ -255,7 +255,6 @@ const register = async ({
   let normalizedCode = null;
   let employee = null;
 
-  // Validate Employee before consuming OTP proof.
   if (role === "employee") {
     normalizedCode = normalizeEmployeeCode(employeeCode);
 
@@ -280,15 +279,14 @@ const register = async ({
     }
   }
 
-  // Consume proof only after the registration data is validated.
-const proof = await otpService.consumeVerificationProof({
-  email: normalizedEmail,
-  purpose,
-  verificationProof,
-  ...(role === "employee"
-    ? { expectedEmployeeCode: normalizedCode }
-    : {}),
-});
+  const proof = await otpService.consumeVerificationProof({
+    email: normalizedEmail,
+    purpose,
+    verificationProof,
+    ...(role === "employee"
+      ? { expectedEmployeeCode: normalizedCode }
+      : {}),
+  });
 
   if (
     !proof.success ||
@@ -301,7 +299,6 @@ const proof = await otpService.consumeVerificationProof({
     );
   }
 
-  // Strictly bind the verified OTP to the Employee code.
   if (role === "employee") {
     if (
       !proof.employeeCode ||
@@ -322,8 +319,6 @@ const proof = await otpService.consumeVerificationProof({
   const hashedPassword = await bcrypt.hash(password, 12);
 
   // ADMIN REGISTRATION
-
-  // ADMIN REGISTRATION
   if (role === "admin") {
     try {
       const admin = await User.create({
@@ -336,8 +331,6 @@ const proof = await otpService.consumeVerificationProof({
         adminApprovalRequestedAt: new Date(),
       });
 
-      // Find existing active Admins.
-      // Legacy Admins with null/missing approval status are included.
       const existingAdmins = await User.find({
         _id: { $ne: admin._id },
         role: "admin",
@@ -350,22 +343,23 @@ const proof = await otpService.consumeVerificationProof({
         .select("_id")
         .lean();
 
-      // Create a separate notification for each existing Admin.
       if (existingAdmins.length > 0) {
-        const notifications = existingAdmins.map((existingAdmin) => ({
-          recipientAdmin: existingAdmin._id,
-          title: "New Admin Registration Pending",
-          message: `${admin.name} (${admin.email}) has requested Admin access. Please review this registration.`,
-          type: "warning",
-          category: "admin-approval",
-          metadata: {
-            adminId: admin._id,
-            adminName: admin.name,
-            adminEmail: admin.email,
-            status: "pending",
-          },
-          dedupeKey: `admin-registration:${admin._id}:${existingAdmin._id}`,
-        }));
+        const notifications = existingAdmins.map(
+          (existingAdmin) => ({
+            recipientAdmin: existingAdmin._id,
+            title: "New Admin Registration Pending",
+            message: `${admin.name} (${admin.email}) has requested Admin access. Please review this registration.`,
+            type: "warning",
+            category: "admin-approval",
+            metadata: {
+              adminId: admin._id,
+              adminName: admin.name,
+              adminEmail: admin.email,
+              status: "pending",
+            },
+            dedupeKey: `admin-registration:${admin._id}:${existingAdmin._id}`,
+          })
+        );
 
         try {
           await Notification.insertMany(notifications, {
@@ -398,7 +392,6 @@ const proof = await otpService.consumeVerificationProof({
     }
   }
 
-
   // EMPLOYEE REGISTRATION
   let user = null;
 
@@ -411,7 +404,6 @@ const proof = await otpService.consumeVerificationProof({
       isActive: true,
     });
 
-    // Atomic linking prevents two accounts claiming one Employee.
     const linkedEmployee = await Employee.findOneAndUpdate(
       {
         _id: employee._id,
@@ -445,7 +437,6 @@ const proof = await otpService.consumeVerificationProof({
       user: publicUser(user, linkedEmployee._id),
     };
   } catch (error) {
-    // Remove the newly created User if Employee linking fails.
     if (user && user._id) {
       try {
         await User.findByIdAndDelete(user._id);
@@ -460,6 +451,10 @@ const proof = await otpService.consumeVerificationProof({
     handleDuplicateError(error);
   }
 };
+
+// --------------------------------------------------
+// LOGIN
+// --------------------------------------------------
 
 // --------------------------------------------------
 // LOGIN
@@ -500,6 +495,7 @@ const login = async ({ email, password, role }) => {
     );
   }
 
+  // Check account status
   if (!user.isActive) {
     if (
       user.role === "admin" &&
@@ -560,7 +556,7 @@ const login = async ({ email, password, role }) => {
     };
   }
 
-  // EMPLOYEE LOGIN: EMAIL + PASSWORD
+  // EMPLOYEE LOGIN: PASSWORD ONLY
   if (user.role === "employee") {
     const employee = await Employee.findOne({
       user: user._id,
@@ -578,7 +574,7 @@ const login = async ({ email, password, role }) => {
     await user.save();
 
     return {
-      message: "Login successful.",
+      message: "Employee login successful.",
       user: publicUser(user, employee._id),
     };
   }
@@ -605,7 +601,12 @@ const verifyAdminLoginOtp = async ({ email, otp }) => {
     verificationProof: verification.verificationProof,
   });
 
-  if (!proof.userId) {
+  if (
+    !proof.success ||
+    proof.email !== normalizedEmail ||
+    proof.purpose !== "admin-login" ||
+    !proof.userId
+  ) {
     throw createError(
       "Admin verification is invalid.",
       403
@@ -640,6 +641,74 @@ const verifyAdminLoginOtp = async ({ email, otp }) => {
 };
 
 // --------------------------------------------------
+// VERIFY EMPLOYEE LOGIN OTP
+// --------------------------------------------------
+
+const verifyEmployeeLoginOtp = async ({ email, otp }) => {
+  const normalizedEmail = normalizeEmail(email);
+
+  const verification = await otpService.verifyOtp({
+    email: normalizedEmail,
+    purpose: "employee-login",
+    otp,
+  });
+
+  const proof = await otpService.consumeVerificationProof({
+    email: normalizedEmail,
+    purpose: "employee-login",
+    verificationProof: verification.verificationProof,
+  });
+
+  if (
+    !proof.success ||
+    proof.email !== normalizedEmail ||
+    proof.purpose !== "employee-login" ||
+    !proof.userId
+  ) {
+    throw createError(
+      "Employee verification is invalid.",
+      403
+    );
+  }
+
+  const user = await User.findById(proof.userId).select(
+    "_id name email role isActive"
+  );
+
+  if (
+    !user ||
+    user.email !== normalizedEmail ||
+    user.role !== "employee" ||
+    !user.isActive
+  ) {
+    throw createError(
+      "Employee account is inactive or invalid.",
+      403
+    );
+  }
+
+  const employee = await Employee.findOne({
+    user: user._id,
+    status: { $in: ALLOWED_EMPLOYEE_STATUSES },
+  }).select("_id status");
+
+  if (!employee) {
+    throw createError(
+      "Your employee account is inactive, terminated or not linked.",
+      403
+    );
+  }
+
+  user.lastLogin = new Date();
+  await user.save();
+
+  return {
+    message: "Employee login successful.",
+    user: publicUser(user, employee._id),
+  };
+};
+
+// --------------------------------------------------
 // FORGOT PASSWORD - SEND OTP
 // --------------------------------------------------
 
@@ -650,7 +719,6 @@ const forgotPassword = async ({ email }) => {
     email: normalizedEmail,
   }).select("_id email isActive");
 
-  // Generic response avoids exposing account existence.
   if (!user || !user.isActive) {
     return {
       message:
@@ -837,6 +905,7 @@ module.exports = {
   register,
   login,
   verifyAdminLoginOtp,
+  verifyEmployeeLoginOtp,
   forgotPassword,
   verifyPasswordResetOtp,
   resetPassword,

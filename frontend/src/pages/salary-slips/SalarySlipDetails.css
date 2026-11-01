@@ -1285,3 +1285,91 @@
     margin: 7mm;
   }
 }
+
+/* =========================================
+   ITTECK SOLUTION - ORIGINAL COMPANY LOGO
+========================================= */
+
+.ssd-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.ssd-brand-logo {
+  display: block;
+  width: 240px;
+  max-width: 48%;
+  height: 85px;
+  flex-shrink: 0;
+  object-fit: contain;
+  object-position: left center;
+  background: #ffffff;
+}
+
+.ssd-brand h2 {
+  margin: 0;
+  color: #101820;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.ssd-brand p {
+  margin-top: 5px;
+  color: #4b5865;
+  font-size: 11px;
+  letter-spacing: 1.3px;
+  font-weight: 700;
+}
+
+/* Tablet */
+@media screen and (max-width: 900px) {
+  .ssd-brand-logo {
+    width: 210px;
+    height: 75px;
+  }
+}
+
+/* Mobile */
+@media screen and (max-width: 600px) {
+  .ssd-brand {
+    gap: 12px;
+  }
+
+  .ssd-brand-logo {
+    width: 165px;
+    max-width: 48%;
+    height: 65px;
+  }
+
+  .ssd-brand h2 {
+    font-size: 17px;
+  }
+
+  .ssd-brand p {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+}
+
+/* Small Mobile */
+@media screen and (max-width: 380px) {
+  .ssd-brand-logo {
+    width: 135px;
+    height: 55px;
+  }
+
+  .ssd-brand h2 {
+    font-size: 15px;
+  }
+}
+
+/* Print / PDF */
+@media print {
+  .ssd-brand-logo {
+    width: 240px;
+    height: 80px;
+    object-fit: contain;
+  }
+}

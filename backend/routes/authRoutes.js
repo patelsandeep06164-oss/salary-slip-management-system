@@ -1,4 +1,5 @@
-﻿const express = require("express");
+﻿
+const express = require("express");
 const router = express.Router();
 
 const authController = require("../controllers/authController");
@@ -10,6 +11,7 @@ const {
   otpSendLimiter,
   otpVerifyLimiter,
   adminOtpVerifyLimiter,
+  employeeOtpVerifyLimiter,
   passwordResetLimiter,
 } = require("../middleware/authRateLimit");
 
@@ -61,6 +63,14 @@ router.post(
   adminOtpVerifyLimiter,
   verifyCsrfToken,
   authController.verifyAdminLoginOtp
+);
+
+// EMPLOYEE LOGIN OTP
+router.post(
+  "/employee-login/verify-otp",
+  employeeOtpVerifyLimiter,
+  verifyCsrfToken,
+  authController.verifyEmployeeLoginOtp
 );
 
 // LOGOUT

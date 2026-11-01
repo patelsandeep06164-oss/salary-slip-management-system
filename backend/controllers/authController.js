@@ -1,5 +1,7 @@
-﻿const authService = require("../services/authService");
+﻿
+const authService = require("../services/authService");
 const sessionService = require("../services/sessionService");
+
 const {
   setSessionCookie,
   clearSessionCookie,
@@ -62,7 +64,6 @@ const establishSession = async (req, res, user) => {
   try {
     setSessionCookie(res, session.token);
   } catch (error) {
-    // Do not leave an active database session if cookie setup fails.
     await sessionService.revokeSession(
       session.token,
       "account-disabled"
@@ -75,12 +76,13 @@ const establishSession = async (req, res, user) => {
 };
 
 // Login.
-// Employee: Email + Password.
-// Admin: Email + Password, then Email OTP.
+// Admin: Email + Password + Email OTP.
+// Employee: Email + Password + Email OTP.
 const login = async (req, res, next) => {
   try {
     const result = await authService.login(req.body);
 
+    // Both Admin and Employee must verify OTP.
     if (result.otpRequired) {
       return res.status(200).json({
         success: true,
@@ -88,7 +90,11 @@ const login = async (req, res, next) => {
       });
     }
 
-    const expiresAt = await establishSession(req, res, result.user);
+    const expiresAt = await establishSession(
+      req,
+      res,
+      result.user
+    );
 
     return res.status(200).json({
       success: true,
@@ -101,12 +107,40 @@ const login = async (req, res, next) => {
   }
 };
 
-// Verify Admin login OTP and create a session.
+// Verify Admin login OTP and create session.
 const verifyAdminLoginOtp = async (req, res, next) => {
   try {
     const result = await authService.verifyAdminLoginOtp(req.body);
 
-    const expiresAt = await establishSession(req, res, result.user);
+    const expiresAt = await establishSession(
+      req,
+      res,
+      result.user
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      user: result.user,
+      expiresAt,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Verify Employee login OTP and create session.
+const verifyEmployeeLoginOtp = async (req, res, next) => {
+  try {
+    const result = await authService.verifyEmployeeLoginOtp(
+      req.body
+    );
+
+    const expiresAt = await establishSession(
+      req,
+      res,
+      result.user
+    );
 
     return res.status(200).json({
       success: true,
@@ -156,7 +190,9 @@ const forgotPassword = async (req, res, next) => {
 // Verify password reset OTP.
 const verifyPasswordResetOtp = async (req, res, next) => {
   try {
-    const result = await authService.verifyPasswordResetOtp(req.body);
+    const result = await authService.verifyPasswordResetOtp(
+      req.body
+    );
 
     return res.status(200).json({
       success: true,
@@ -216,6 +252,7 @@ module.exports = {
   register,
   login,
   verifyAdminLoginOtp,
+  verifyEmployeeLoginOtp,
   logout,
   forgotPassword,
   verifyPasswordResetOtp,

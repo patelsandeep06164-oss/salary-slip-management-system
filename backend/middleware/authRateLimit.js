@@ -1,4 +1,5 @@
-﻿const rateLimit = require("express-rate-limit");
+﻿
+const rateLimit = require("express-rate-limit");
 
 const createLimiter = ({
   limit,
@@ -30,18 +31,25 @@ const otpSendLimiter = createLimiter({
     "Too many OTP requests. Please try again after 15 minutes.",
 });
 
-// Registration OTP verification: maximum 5 attempts per IP.
+// Registration OTP verification.
 const otpVerifyLimiter = createLimiter({
   limit: 5,
   message:
     "Too many OTP verification attempts. Please try again later.",
 });
 
-// Admin login OTP: separate limit.
+// Admin login OTP verification.
 const adminOtpVerifyLimiter = createLimiter({
   limit: 5,
   message:
     "Too many Admin OTP verification attempts. Please try again later.",
+});
+
+// Employee login OTP verification.
+const employeeOtpVerifyLimiter = createLimiter({
+  limit: 5,
+  message:
+    "Too many Employee OTP verification attempts. Please try again later.",
 });
 
 // Password reset verification and reset requests.
@@ -56,5 +64,6 @@ module.exports = {
   otpSendLimiter,
   otpVerifyLimiter,
   adminOtpVerifyLimiter,
+  employeeOtpVerifyLimiter,
   passwordResetLimiter,
 };
