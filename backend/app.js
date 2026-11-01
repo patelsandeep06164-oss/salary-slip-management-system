@@ -6,6 +6,8 @@ const rateLimit = require("express-rate-limit");
 const cookieParser = require("cookie-parser");
 
 const app = express();
+// Trust one reverse proxy hop used by Render.
+app.set("trust proxy", 1);
 
 // Middleware
 const errorMiddleware = require("./middleware/errorMiddleware");
