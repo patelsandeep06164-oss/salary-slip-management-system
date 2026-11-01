@@ -1,9 +1,5 @@
 
-const {
-  transporter,
-  isMailerConfigured,
-  getEmailFrom,
-} = require("../config/mailer");
+const { Resend } = require("resend");
 
 const createError = (message, statusCode = 500) => {
   const error = new Error(message);
@@ -11,31 +7,61 @@ const createError = (message, statusCode = 500) => {
   return error;
 };
 
+// Resend API configuration
+const resendApiKey = process.env.RESEND_API_KEY?.trim();
+
+const resend = resendApiKey
+  ? new Resend(resendApiKey)
+  : null;
+
+// Testing sender. Production mein verified company domain use karein.
+const emailFrom =
+  process.env.RESEND_FROM_EMAIL?.trim() ||
+  "onboarding@resend.dev";
+
+// Existing email purposes preserved.
 const emailTemplates = {
   "employee-registration": {
     subject: "Your SalaryFlow Verification Code",
     heading: "Email Verification",
-    description: "Use the verification code below to verify your email address.",
+    description:
+      "Use the verification code below to verify your email address.",
   },
 
   "admin-registration": {
     subject: "Your SalaryFlow Verification Code",
     heading: "Email Verification",
-    description: "Use the verification code below to verify your email address.",
+    description:
+      "Use the verification code below to verify your email address.",
   },
 
   "admin-login": {
     subject: "Your SalaryFlow Verification Code",
     heading: "Email Verification",
-    description: "Use the verification code below to verify your email address.",
+    description:
+      "Use the verification code below to verify your email address.",
   },
 
   "password-reset": {
     subject: "Your SalaryFlow Verification Code",
     heading: "Email Verification",
-    description: "Use the verification code below to verify your email address.",
+    description:
+      "Use the verification code below to verify your email address.",
   },
 };
+
+const escapeHtml = (value) =>
+  String(value).replace(/[&<>"']/g, (character) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+
+    return entities[character];
+  });
 
 const sendAuthOtpEmail = async ({
   email,
@@ -54,7 +80,10 @@ const sendAuthOtpEmail = async ({
     typeof email !== "string" ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
   ) {
-    throw createError("Please provide a valid email address.", 400);
+    throw createError(
+      "Please provide a valid email address.",
+      400
+    );
   }
 
   if (!/^\d{6}$/.test(String(otp))) {
@@ -66,7 +95,10 @@ const sendAuthOtpEmail = async ({
     expiresInMinutes < 1 ||
     expiresInMinutes > 10
   ) {
-    throw createError("Invalid OTP expiry duration.", 400);
+    throw createError(
+      "Invalid OTP expiry duration.",
+      400
+    );
   }
 
   const template = emailTemplates[purpose];
@@ -78,7 +110,11 @@ const sendAuthOtpEmail = async ({
     );
   }
 
-  if (!isMailerConfigured || !transporter) {
+  if (!resend || !resendApiKey) {
+    console.error(
+      "Resend email service is not configured."
+    );
+
     throw createError(
       "Email service is not configured. Please contact the administrator."
     );
@@ -154,7 +190,7 @@ const sendAuthOtpEmail = async ({
             font-size: 32px;
             letter-spacing: 9px;
           ">
-            ${safeOtp}
+            ${escapeHtml(safeOtp)}
           </strong>
         </div>
 
@@ -205,40 +241,44 @@ Your verification code: ${safeOtp}
 This OTP expires in ${expiresInMinutes} minutes.
 
 Never share this code with anyone.
-`;
+  `;
 
   try {
-  const result = await transporter.sendMail({
-  from: getEmailFrom(),
-  to: normalizedEmail,
-  subject: template.subject,
-  text,
-  html,
-});
+    const { data, error } = await resend.emails.send({
+      from: emailFrom,
+      to: [normalizedEmail],
+      subject: template.subject,
+      html,
+      text,
+    });
 
-const maskEmail = (value) => {
-  if (typeof value !== "string" || !value.includes("@")) {
-    return "INVALID_EMAIL";
-  }
+    if (error) {
+      console.error("RESEND API DELIVERY ERROR:", {
+        name: error.name || null,
+        message: error.message || "Unknown Resend error",
+        statusCode: error.statusCode || null,
+      });
 
-  const [localPart, domain] = value.split("@");
+      throw new Error(
+        error.message || "Resend email delivery failed."
+      );
+    }
 
-  return `${localPart.slice(0, 2)}***@${domain}`;
-};
+    if (!data?.id) {
+      throw new Error(
+        "Resend did not return an email ID."
+      );
+    }
 
-console.info("AUTH OTP EMAIL DELIVERY RESULT", {
-  purpose,
-  recipient: maskEmail(normalizedEmail),
-  accepted: (result.accepted || []).map(maskEmail),
-  rejected: (result.rejected || []).map(maskEmail),
-  messageId: result.messageId || null,
-  response: result.response || null,
-});
+    console.info("AUTH OTP EMAIL ACCEPTED BY RESEND:", {
+      purpose,
+      messageId: data.id,
+    });
 
-return {
-  success: true,
-  messageId: result.messageId,
-};
+    return {
+      success: true,
+      messageId: data.id,
+    };
   } catch (error) {
     console.error(
       "Authentication OTP email failed:",
@@ -246,7 +286,8 @@ return {
     );
 
     throw createError(
-      "Unable to send verification email. Please try again later."
+      "Unable to send verification email. Please try again later.",
+      502
     );
   }
 };
