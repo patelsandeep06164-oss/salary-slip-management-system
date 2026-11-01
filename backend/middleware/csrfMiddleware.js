@@ -8,7 +8,7 @@ const isProduction = process.env.NODE_ENV === "production";
 const cookieOptions = {
   httpOnly: false,
   secure: isProduction,
-  sameSite: "strict",
+  sameSite: isProduction ? "none" : "strict",
   path: "/",
 };
 
